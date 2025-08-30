@@ -62,6 +62,7 @@ import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.npassigntech.component.AppTopBar
+import com.example.npassigntech.component.NoDataAnimation
 import com.example.npassigntech.component.Result
 import com.example.npassigntech.model.responseModel.PropertyReportModel
 import com.example.npassigntech.sharedPreferences.SharedPreferencesManager
@@ -105,7 +106,6 @@ fun PropertyDetailsScreen(
     onRefresh: () -> Unit,
     navController: NavHostController,
 ) {
-
     val totalProperties = when (allPropertyReportState) {
         is Result.Success -> allPropertyReportState.data.nP.responseData.size
         else -> 0
@@ -135,7 +135,7 @@ fun PropertyDetailsScreen(
                         .padding(horizontal = 5.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Total Properties Card (now shows all properties count)
+                    // Total Properties Card
                     Card(
                         modifier = Modifier
                             .weight(1f)
@@ -163,7 +163,7 @@ fun PropertyDetailsScreen(
                         }
                     }
 
-                    // Entry by User Card (now shows user-specific count)
+                    // Entry by User Card
                     Card(
                         modifier = Modifier
                             .weight(1f)
@@ -192,13 +192,12 @@ fun PropertyDetailsScreen(
                     }
                 }
 
-                // Existing PullToRefreshBox content
+                // PullToRefreshBox content
                 PullToRefreshBox(
                     isRefreshing = isRefreshing,
                     onRefresh = onRefresh,
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    // Handle loading/error based on user-specific state (since list shows user data)
                     when (userPropertyReportState) {
                         is Result.Loading -> {
                             if (isRefreshing) {
@@ -208,7 +207,7 @@ fun PropertyDetailsScreen(
                                         .padding(horizontal = 5.dp),
                                     verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    items(5) { // Show multiple shimmer items during refresh
+                                    items(5) {
                                         ShimmerPropertyItem()
                                     }
                                 }
@@ -225,14 +224,18 @@ fun PropertyDetailsScreen(
                         is Result.Success -> {
                             val data = userPropertyReportState.data
                             val responseDataList = data.nP.responseData
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 5.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                items(responseDataList) { responseData ->
-                                    PropertyDetailCard(responseData)
+                            if (responseDataList.isEmpty()) {
+                                NoDataAnimation()
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 5.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    items(responseDataList) { responseData ->
+                                        PropertyDetailCard(responseData)
+                                    }
                                 }
                             }
                         }
@@ -250,18 +253,8 @@ fun PropertyDetailsScreen(
                                 )
                             }
                         }
-
                         Result.Idle -> {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "No data available",
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
+                            NoDataAnimation()
                         }
                     }
                 }
@@ -269,7 +262,6 @@ fun PropertyDetailsScreen(
         }
     )
 }
-
 @Composable
 fun PropertyDetailCard(data: PropertyReportModel.NP.ResponseData) {
     // State to control dialog visibility
