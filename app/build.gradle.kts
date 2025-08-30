@@ -136,4 +136,6 @@ dependencies {
 
     // Biometric library (use latest stable)
     implementation("androidx.biometric:biometric:1.1.0")
+
+    implementation("com.airbnb.android:lottie-compose:6.6.7")
 }

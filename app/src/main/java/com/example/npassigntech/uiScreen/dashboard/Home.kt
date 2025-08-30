@@ -229,7 +229,7 @@ fun HomeGrid(
     onItemClick: (HomeItem) -> Unit
 ) {
     LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
+        columns = GridCells.Fixed(2),
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = 400.dp),
@@ -266,7 +266,7 @@ fun HomeGridItem(item: HomeItem, onClick: () -> Unit) {
             Icon(
                 imageVector = item.icon,
                 contentDescription = item.title,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(50.dp),
                 tint = Color.White
             )
             Spacer(modifier = Modifier.height(8.dp))
