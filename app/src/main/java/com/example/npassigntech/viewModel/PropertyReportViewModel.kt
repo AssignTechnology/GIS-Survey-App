@@ -86,7 +86,8 @@ class PropertyReportViewModel @Inject constructor(
         viewModelScope.launch {
             fetchAllProperties()
             if (userNo.isNotEmpty()) {
-                fetchUserProperties(userNo)
+//                fetchUserProperties(userNo)
+                fetchUserProperties("")
             }
             _isRefreshing.value = false
         }

@@ -23,6 +23,7 @@ class Repository @Inject constructor(
         return apiService.getLogin(admin, password)
     }
 
+
     suspend fun sendOtp(mobileNo: String): Response<SendOtpRes> {
         return apiService.sendOtp(mobileNo)
     }

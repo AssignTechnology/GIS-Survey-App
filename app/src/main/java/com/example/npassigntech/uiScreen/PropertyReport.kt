@@ -84,7 +84,8 @@ fun PropertyReport(
 
     LaunchedEffect(viewModel.userNo) {
         if (viewModel.userNo.isNotEmpty()) {
-            viewModel.fetchUserProperties(viewModel.userNo)
+//            viewModel.fetchUserProperties(viewModel.userNo)
+            viewModel.fetchUserProperties("")
         }
     }
 

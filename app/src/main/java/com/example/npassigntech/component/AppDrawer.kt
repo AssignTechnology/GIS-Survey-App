@@ -90,6 +90,7 @@ fun AppDrawer(
     // Subtle gradient for cards
     val cardBrush = Brush.linearGradient(
         colors = listOf(
+
             Color(0xFFE1BEE7), // Light Purple
             Color(0xFFB2EBF2), // Light Cyan
             Color(0xFFF8BBD0), // Light Pink
