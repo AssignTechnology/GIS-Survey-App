@@ -75,7 +75,9 @@ data class PropertyReportModel(
             @SerializedName("WardName")
             val wardName: String,
             @SerializedName("EmptyArea")
-            val emptyArea: String
+            val emptyArea: String,
+            @SerializedName("PrimaryConstructionType")
+            val primaryConstructionType: String
 
         )
     }

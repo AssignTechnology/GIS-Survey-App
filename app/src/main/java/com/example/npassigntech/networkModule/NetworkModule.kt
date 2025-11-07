@@ -34,7 +34,7 @@ object NetworkModule {
         return Retrofit.Builder()
             .baseUrl(
 //                "https://api.assigntechnosoft.com/"
-                "https://api.nprampur.in/"
+                "https://api.npbelharkala.in/"
             )
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())

@@ -32,16 +32,20 @@ import javax.inject.Inject
 class PropertyRegistrationViewModel @Inject constructor(
     private val repository: Repository
 ) : ViewModel() {
-
     // API response states
     private val _propertyRes = MutableStateFlow<Result<PropertyRes>>(Result.Idle)
     val propertyRes: StateFlow<Result<PropertyRes>> = _propertyRes.asStateFlow()
-
     private val _wardState = MutableStateFlow<Result<WardRes>>(Result.Idle)
     val wardState: StateFlow<Result<WardRes>> = _wardState.asStateFlow()
 
     private val _constructionType = MutableStateFlow<Result<ConstructionTypeRes>>(Result.Idle)
     val constructionType: StateFlow<Result<ConstructionTypeRes>> = _constructionType.asStateFlow()
+
+    private val _pconstructionType = MutableStateFlow<Result<ConstructionTypeRes>>(Result.Idle)
+    val pconstructionType: StateFlow<Result<ConstructionTypeRes>> = _pconstructionType.asStateFlow()
+
+    private val _roadWide = MutableStateFlow<Result<ConstructionTypeRes>>(Result.Idle)
+    val roadWideArea: StateFlow<Result<ConstructionTypeRes>> = _roadWide.asStateFlow()
 
     private val _nonGov = MutableStateFlow<Result<NonGovPropertyRes>>(Result.Idle)
     val nonGov: StateFlow<Result<NonGovPropertyRes>> = _nonGov.asStateFlow()
@@ -70,13 +74,22 @@ class PropertyRegistrationViewModel @Inject constructor(
 
     var constructionTypeId by mutableStateOf<String?>(null)
         private set
+    var pconstructionTypeId by mutableStateOf<String?>(null)
+        private set
 
     fun updateConstructionTypeId(value: String?) {
         constructionTypeId = value
         constructionTypeError = validateRequiredSelection(value, "निर्माण के प्रकार")
     }
 
+    fun updatepConstructionTypeId(value: String?) {
+        pconstructionTypeId = value
+        pconstructionTypeError = validateRequiredSelection(value, "निर्माण के प्रकार")
+    }
+
     var selectedConstructionType = mutableStateOf<ConstructionTypeRes.NP.ResponseData?>(null)
+    var selectedpConstructionType = mutableStateOf<ConstructionTypeRes.NP.ResponseData?>(null)
+    var selectedRoadWide = mutableStateOf<ConstructionTypeRes.NP.ResponseData?>(null)
 
     var nonGovId by mutableStateOf<String?>(null)
         private set
@@ -204,6 +217,7 @@ class PropertyRegistrationViewModel @Inject constructor(
     var govError by mutableStateOf<String?>(null)
     var nonGovError by mutableStateOf<String?>(null)
     var constructionTypeError by mutableStateOf<String?>(null)
+    var pconstructionTypeError by mutableStateOf<String?>(null)
 
 
     // In PropertyRegistrationViewModel
@@ -383,6 +397,8 @@ class PropertyRegistrationViewModel @Inject constructor(
         roadWideError = validateRequiredSelection(value, "रोड की चौड़ाई")
     }
 
+
+
     fun updateFloorNo(value: String?) {
         floorNo = value
         floorNoError = validateRequiredSelection(value, "फ्लोर नं")
@@ -442,7 +458,7 @@ class PropertyRegistrationViewModel @Inject constructor(
             value.isBlank() -> "निर्माण वर्ष आवश्यक है"
             !value.matches(Regex("^[0-9]{4}$")) -> "निर्माण वर्ष 4 अंकों का होना चाहिए"
             (value.toIntOrNull()
-                ?: 0) !in 1900..2025 -> "निर्माण वर्ष 1900 और 2025 के बीच होना चाहिए"
+                ?: 0) !in 1800..2025 -> "निर्माण वर्ष 1800 और 2025 के बीच होना चाहिए"
 
             else -> null
         }
@@ -569,11 +585,11 @@ class PropertyRegistrationViewModel @Inject constructor(
         }
     }
 
-    fun fetchConstructionTypes() {
+    fun fetchConstructionTypes(id: String) {
         viewModelScope.launch {
             _constructionType.value = Result.Loading
             try {
-                val response = repository.getConstructionType()
+                val response = repository.getConstructionType(id)
                 _constructionType.value = if (response.isSuccessful && response.body() != null) {
                     Result.Success(response.body()!!)
                 } else {
@@ -581,6 +597,40 @@ class PropertyRegistrationViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 _constructionType.value =
+                    Result.Error(errorMessage = e.message ?: "Unexpected error")
+            }
+        }
+    }
+
+    fun fetchPConstructionTypes() {
+        viewModelScope.launch {
+            _pconstructionType.value = Result.Loading
+            try {
+                val response = repository.getPrimaryConstructionType()
+                _pconstructionType.value = if (response.isSuccessful && response.body() != null) {
+                    Result.Success(response.body()!!)
+                } else {
+                    Result.Error(response.code(), response.errorBody()?.string() ?: "Unknown error")
+                }
+            } catch (e: Exception) {
+                _pconstructionType.value =
+                    Result.Error(errorMessage = e.message ?: "Unexpected error")
+            }
+        }
+    }
+
+    fun fetchRoadWide() {
+        viewModelScope.launch {
+            _roadWide.value = Result.Loading
+            try {
+                val response = repository.getBindRoadWide()
+                _roadWide.value = if (response.isSuccessful && response.body() != null) {
+                    Result.Success(response.body()!!)
+                } else {
+                    Result.Error(response.code(), response.errorBody()?.string() ?: "Unknown error")
+                }
+            } catch (e: Exception) {
+                _roadWide.value =
                     Result.Error(errorMessage = e.message ?: "Unexpected error")
             }
         }
@@ -632,19 +682,20 @@ class PropertyRegistrationViewModel @Inject constructor(
                 bhukhandPlatError = validateRequiredSelection(
                     bhukhandPlat,
                     "भूखण्ड/प्लाट"
-                ); if (bhukhandPlatError != null) isValid = false
-                residentialError = validateArea(
-                    residential.text,
-                    "आवासीय क्षेत्रफल"
-                ); if (residentialError != null) isValid = false
-                commercialError = validateArea(
-                    commercial.text,
-                    "व्यावसायिक क्षेत्रफल"
-                ); if (commercialError != null) isValid = false
-                emptyAreaError = validateArea(
-                    emptyArea.text,
-                    "खाली क्षेत्रफल"
-                ); if (emptyAreaError != null) isValid = false
+                );
+//                if (bhukhandPlatError != null) isValid = false
+//                residentialError = validateArea(
+//                    residential.text,
+//                    "आवासीय क्षेत्रफल"
+//                ); if (residentialError != null) isValid = false
+//                commercialError = validateArea(
+//                    commercial.text,
+//                    "व्यावसायिक क्षेत्रफल"
+//                ); if (commercialError != null) isValid = false
+//                emptyAreaError = validateArea(
+//                    emptyArea.text,
+//                    "खाली क्षेत्रफल"
+//                ); if (emptyAreaError != null) isValid = false
                 totalAreaError = validateArea(
                     totalArea.text,
                     "सम्पूर्ण क्षेत्रफल"
@@ -738,14 +789,20 @@ class PropertyRegistrationViewModel @Inject constructor(
                 floorNoError = validateRequiredSelection(
                     floorNo,
                     "फ्लोर नं"
-                ); if (floorNoError != null) isValid = false
+                );
+                if (floorNoError != null) isValid = false
+                pconstructionTypeError = validateRequiredSelection(
+                    pconstructionTypeId,
+                    "निर्माण के प्रकार"
+                );
+
                 constructionTypeError = validateRequiredSelection(
                     constructionTypeId,
-                    "निर्माण के प्रकार"
-                ); if (constructionTypeError != null) isValid = false
+                    "उपनिर्माण के प्रकार"
+                );
+                if (constructionTypeError != null) isValid = false
                 constructionYearError =
-                    validateConstructionYear(constructionYear.text); if (constructionYearError != null) isValid =
-                    false
+                    validateConstructionYear(constructionYear.text); if (constructionYearError != null) isValid = false
             }
         }
 
@@ -775,6 +832,7 @@ class PropertyRegistrationViewModel @Inject constructor(
             nonGovProperty = nonGovId ?: "",
             floorNo = floorNo ?: "",
             constructionType = constructionTypeId ?: "",
+            primaryConstructionType = pconstructionTypeId ?: "",
             constructionYear = constructionYear.text,
             propertyNo = propertyNo.text,
             ownerName = ownerPropertyName.text,

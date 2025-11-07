@@ -70,8 +70,19 @@ interface ApiService {
     suspend fun getGovProperty(
     ): Response<GovPropertyRes>
 
+
+    @FormUrlEncoded
     @POST("api/User/BindConstructionType")
     suspend fun getConstructionType(
+        @Field("Id") id: String
+    ): Response<ConstructionTypeRes>
+
+    @POST("api/User/PrimaryConstructionType")
+    suspend fun getPrimaryConstructionType(
+    ): Response<ConstructionTypeRes>
+
+    @POST("api/User/BindRoadWide")
+    suspend fun getBindRoadWide(
     ): Response<ConstructionTypeRes>
 
     @POST("api/User/SurveyPropertyRegistration")

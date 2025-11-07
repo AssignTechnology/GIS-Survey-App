@@ -60,6 +60,11 @@ data class PropertyReq(
     val rodeWide: String,
     @SerializedName("DeviceName")
     val deviceName: String,
+    @SerializedName("PrimaryConstructionType")
+    val primaryConstructionType: String,
     @SerializedName("Image")
     val image: String
+
+
+
 )

@@ -70,9 +70,9 @@ fun PropertyRegistrationPreviewScreen(
                     when (viewModel.propertyPos) {
                         0 -> {
                             PreviewField("भूखण्ड/प्लाट", viewModel.bhukhandPlat ?: "Not selected")
-                            PreviewField("आवासीय क्षेत्रफल", viewModel.residential.text)
-                            PreviewField("व्यावसायिक क्षेत्रफल", viewModel.commercial.text)
-                            PreviewField("खाली क्षेत्रफल", viewModel.emptyArea.text)
+//                            PreviewField("आवासीय क्षेत्रफल", viewModel.residential.text)
+//                            PreviewField("व्यावसायिक क्षेत्रफल", viewModel.commercial.text)
+//                            PreviewField("खाली क्षेत्रफल", viewModel.emptyArea.text)
                             PreviewField("सम्पूर्ण क्षेत्रफल", viewModel.totalArea.text)
                         }
                         1 -> {
@@ -94,6 +94,10 @@ fun PropertyRegistrationPreviewScreen(
                             PreviewField("फ्लोर नं", viewModel.floorNo ?: "Not selected")
                             PreviewField(
                                 "निर्माण के प्रकार",
+                                viewModel.selectedpConstructionType.value?.name ?: "Not selected"
+                            )
+                            PreviewField(
+                                "उपनिर्माण के प्रकार",
                                 viewModel.selectedConstructionType.value?.name ?: "Not selected"
                             )
                             PreviewField("निर्माण वर्ष", viewModel.constructionYear.text)

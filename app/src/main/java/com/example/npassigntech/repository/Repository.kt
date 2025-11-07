@@ -1,6 +1,7 @@
 package com.example.npassigntech.repository
 
 import com.example.npassigntech.model.requestModel.PropertyReq
+import com.example.npassigntech.model.responseModel.ConstructionPTypeRes
 import com.example.npassigntech.model.responseModel.ConstructionTypeRes
 import com.example.npassigntech.model.responseModel.GovPropertyRes
 import com.example.npassigntech.model.responseModel.LoginModel
@@ -57,8 +58,16 @@ class Repository @Inject constructor(
         return apiService.getGovProperty()
     }
 
-    suspend fun getConstructionType(): Response<ConstructionTypeRes> {
-        return apiService.getConstructionType()
+    suspend fun getConstructionType(id: String): Response<ConstructionTypeRes> {
+        return apiService.getConstructionType(id)
+    }
+
+    suspend fun getPrimaryConstructionType(): Response<ConstructionTypeRes> {
+        return apiService.getPrimaryConstructionType()
+    }
+
+    suspend fun getBindRoadWide(): Response<ConstructionTypeRes> {
+        return apiService.getBindRoadWide()
     }
 
     suspend fun getPropertyRegistration(propertyReq: PropertyReq): Response<PropertyRes> {

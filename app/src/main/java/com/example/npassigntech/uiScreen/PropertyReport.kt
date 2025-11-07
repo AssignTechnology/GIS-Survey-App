@@ -84,8 +84,8 @@ fun PropertyReport(
 
     LaunchedEffect(viewModel.userNo) {
         if (viewModel.userNo.isNotEmpty()) {
-//            viewModel.fetchUserProperties(viewModel.userNo)
-            viewModel.fetchUserProperties("")
+            viewModel.fetchUserProperties(viewModel.userNo)
+//            viewModel.fetchUserProperties("")
         }
     }
 
@@ -493,7 +493,8 @@ private fun getPropertyDetails(data: PropertyReportModel.NP.ResponseData): List<
         "संम्पत्ति" to data.property,
         "संम्पत्ति के प्रकार" to data.propertyType,
         "भूखण्ड/प्लाट के प्रकार" to data.bhukhandPlotType,
-        "निर्माण के प्रकार" to data.constructionType,
+        "निर्माण के प्रकार" to data.primaryConstructionType,
+        "उपनिर्माण वर्ष" to data.constructionType,
         "निर्माण वर्ष" to data.constructionYear,
         "तल संख्या" to data.floorNo,
         "सम्पूर्ण क्ष्रेत्र" to data.totalArea,

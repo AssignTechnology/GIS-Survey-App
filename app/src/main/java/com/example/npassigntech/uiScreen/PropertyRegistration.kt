@@ -112,9 +112,11 @@ fun PropertyScreen(
 
     LaunchedEffect(Unit) {
         viewModel.fetchWards()
-        viewModel.fetchConstructionTypes()
+
+        viewModel.fetchPConstructionTypes()
         viewModel.fetchGovProperties()
         viewModel.fetchNonGovProperties()
+        viewModel.fetchRoadWide()
     }
 
     Box(
@@ -241,37 +243,36 @@ fun PropertyScreen(
                             modifier = Modifier.fillMaxWidth(),
                             error = viewModel.bhukhandPlatError
                         )
-                        TitledTextField(
-                            title = "आवासीय क्षेत्रफल",
-                            value = viewModel.residential,
-                            onValueChange = viewModel::updateResidential,
-                            placeholder = "आवासीय क्षेत्रफल दर्ज करें",
-                            error = viewModel.residentialError,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
-                        TitledTextField(
-                            title = "व्यावसायिक क्षेत्रफल",
-                            value = viewModel.commercial,
-                            onValueChange = viewModel::updateCommercial,
-                            placeholder = "व्यावसायिक क्षेत्रफल दर्ज करें",
-                            error = viewModel.commercialError,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
-                        TitledTextField(
-                            title = "खाली क्षेत्रफल",
-                            value = viewModel.emptyArea,
-                            onValueChange = viewModel::updateEmptyArea,
-                            placeholder = "खाली क्षेत्रफल दर्ज करें",
-                            error = viewModel.emptyAreaError,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
+//                        TitledTextField(
+//                            title = "आवासीय क्षेत्रफल",
+//                            value = viewModel.residential,
+//                            onValueChange = viewModel::updateResidential,
+//                            placeholder = "आवासीय क्षेत्रफल दर्ज करें",
+//                            error = viewModel.residentialError,
+//                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+//                        )
+//                        TitledTextField(
+//                            title = "व्यावसायिक क्षेत्रफल",
+//                            value = viewModel.commercial,
+//                            onValueChange = viewModel::updateCommercial,
+//                            placeholder = "व्यावसायिक क्षेत्रफल दर्ज करें",
+//                            error = viewModel.commercialError,
+//                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+//                        )
+//                        TitledTextField(
+//                            title = "खाली क्षेत्रफल",
+//                            value = viewModel.emptyArea,
+//                            onValueChange = viewModel::updateEmptyArea,
+//                            placeholder = "खाली क्षेत्रफल दर्ज करें",
+//                            error = viewModel.emptyAreaError,
+//                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+//                        )
                         TitledTextField(
                             title = "सम्पूर्ण क्षेत्रफल",
                             value = viewModel.totalArea,
                             onValueChange = viewModel::updateTotalArea,
                             placeholder = "सम्पूर्ण क्षेत्रफल दर्ज करें",
                             error = viewModel.totalAreaError,
-                            readOnly = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
                     }
@@ -484,6 +485,32 @@ fun PropertyScreen(
                             modifier = Modifier.fillMaxWidth(),
                             error = viewModel.floorNoError
                         )
+                        val pconstructionTypeState =
+                            viewModel.pconstructionType.collectAsState().value
+                        when (pconstructionTypeState) {
+                            is Result.Loading -> CircularProgress()
+                            is Result.Success -> {
+                                DropdownMenu(
+                                    title = "निर्माण के प्रकार",
+                                    label = "निर्माण के प्रकार चुनें",
+                                    items = pconstructionTypeState.data.nP.responseData,
+                                    selectedItem = viewModel.selectedpConstructionType.value,
+                                    onItemSelected = { _, item ->
+                                        viewModel.updatepConstructionTypeId(item.id)
+                                        viewModel.selectedpConstructionType.value = item
+                                        viewModel.updateConstructionTypeId("")
+                                        viewModel.selectedMohalla.value = null
+                                        viewModel.fetchConstructionTypes(item.id)
+                                    },
+                                    displayText = { it.name },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    error = viewModel.pconstructionTypeError
+                                )
+                            }
+
+                            else -> {}
+                        }
+
 
                         val constructionTypeState =
                             viewModel.constructionType.collectAsState().value
@@ -491,8 +518,8 @@ fun PropertyScreen(
                             is Result.Loading -> CircularProgress()
                             is Result.Success -> {
                                 DropdownMenu(
-                                    title = "निर्माण के प्रकार",
-                                    label = "निर्माण के प्रकार चुनें",
+                                    title = "उपनिर्माण के प्रकार",
+                                    label = "उपनिर्माण के प्रकार चुनें",
                                     items = constructionTypeState.data.nP.responseData,
                                     selectedItem = viewModel.selectedConstructionType.value,
                                     onItemSelected = { _, item ->
@@ -601,18 +628,39 @@ fun PropertyScreen(
                     )
 
 
+                val roadWideState =
+                    viewModel.roadWideArea.collectAsState().value
+                when (roadWideState) {
+                    is Result.Loading -> CircularProgress()
+                    is Result.Success -> {
+                        DropdownMenu(
+                            title = "रोड की चौड़ाई",
+                            label = "रोड की चौड़ाई चुनें",
+                            items = roadWideState.data.nP.responseData,
+                            selectedItem = viewModel.selectedRoadWide.value,
+                            onItemSelected = { _, item ->
+                                viewModel.updateRoadWide(item.id)
+                                viewModel.selectedRoadWide.value = item
+                            },
+                            displayText = { it.name },
+                            modifier = Modifier.fillMaxWidth(),
+                            error = viewModel.roadWideError
+                        )
+                    }
 
-
-                DropdownMenu(
-                    title = "रोड की चौड़ाई",
-                    label = "रोड की चौड़ाई चुनें",
-                    items = listOf("10 फिट से कम", "10 से 15 फिट तक", "15 फिट से अधिक"),
-                    selectedItem = viewModel.roadWide,
-                    onItemSelected = { _, item -> viewModel.updateRoadWide(item) },
-                    displayText = { it },
-                    modifier = Modifier.fillMaxWidth(),
-                    error = viewModel.roadWideError
-                )
+                    else -> {}
+                }
+//
+//                DropdownMenu(
+//                    title = "रोड की चौड़ाई",
+//                    label = "रोड की चौड़ाई चुनें",
+//                    items = listOf("10 फिट से कम", "10 से 15 फिट तक", "15 फिट से अधिक"),
+//                    selectedItem = viewModel.roadWide,
+//                    onItemSelected = { _, item -> viewModel.updateRoadWide(item) },
+//                    displayText = { it },
+//                    modifier = Modifier.fillMaxWidth(),
+//                    error = viewModel.roadWideError
+//                )
 
                 // Image Picker
                 Column {
