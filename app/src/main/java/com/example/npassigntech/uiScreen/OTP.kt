@@ -52,7 +52,6 @@ fun OtpScreen(
     phoneNumber: String,
     setOnOtpReceived: ((String) -> Unit) -> Unit,
     onBack: () -> Unit,
-
     navController: NavHostController,
     viewModel: VerifyOtp = hiltViewModel()
 ) {

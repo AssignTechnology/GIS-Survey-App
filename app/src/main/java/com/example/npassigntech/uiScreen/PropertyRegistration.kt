@@ -35,8 +35,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -606,11 +608,35 @@ fun PropertyScreen(
 
                 TitledTextField(
                     title = "मोबाइल नं",
-                    value = viewModel.contactNumber,
-                    onValueChange = viewModel::updateContactNumber,
+                    value = viewModel.contactNumber,  // ये TextFieldValue होना चाहिए
+                    onValueChange = { input ->         // input अब TextFieldValue है
+                        // सिर्फ़ डिजिट्स रखो + max 10
+                        val builder = StringBuilder()
+                        for (char in input.text) {     // <-- यहीं fix: input.text (क्योंकि TextFieldValue है)
+                            if (char.isDigit()) {
+                                builder.append(char)
+                                if (builder.length >= 10) break
+                            }
+                        }
+                        val filteredText = builder.toString()
+
+                        // नया TextFieldValue बनाओ – कर्सर हमेशा लास्ट में रहेगा (सबसे अच्छा UX फ़ोन नंबर के लिए)
+                        val newValue = input.copy(
+                            text = filteredText,
+                            selection = TextRange(filteredText.length)  // कर्सर end में
+                            // composition = input.composition  // अगर mask यूज़ कर रहे हो तो ये भी copy कर लो
+                        )
+
+                        viewModel.updateContactNumber(newValue)
+                    },
                     placeholder = "मोबाइल नं दर्ज करें",
                     error = viewModel.contactNumberError,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Phone,
+                        imeAction = ImeAction.Next
+                    ),
+                    singleLine = true,
+                    maxLines = 1
                 )
                 GetCurrentAddress { address ->
                     currentAddress = address

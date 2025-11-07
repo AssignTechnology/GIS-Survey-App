@@ -118,7 +118,11 @@ fun AppNavigation(setOnOtpReceived: ((String) -> Unit) -> Unit) {
         composable(Screen.MobileLogin.route) {
             OtpLogin(
                 onNavigateToOtp = { phoneNumber ->
-                    navController.navigate("otp_login/$phoneNumber")
+                    navController.navigate("otp_login/$phoneNumber"){
+                        popUpTo(Screen.MobileLogin.route) {
+                            inclusive = true
+                        }
+                    }
                 }
             )
         }
