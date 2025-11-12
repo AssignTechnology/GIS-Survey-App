@@ -261,21 +261,22 @@ fun PropertyScreen(
 //                            error = viewModel.commercialError,
 //                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
 //                        )
-//                        TitledTextField(
-//                            title = "खाली क्षेत्रफल",
-//                            value = viewModel.emptyArea,
-//                            onValueChange = viewModel::updateEmptyArea,
-//                            placeholder = "खाली क्षेत्रफल दर्ज करें",
-//                            error = viewModel.emptyAreaError,
-//                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-//                        )
+                        TitledTextField(
+                            title = "खाली क्षेत्रफल",
+                            value = viewModel.emptyArea,
+                            onValueChange = viewModel::updateEmptyArea,
+                            placeholder = "खाली क्षेत्रफल दर्ज करें",
+                            error = viewModel.emptyAreaError,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
                         TitledTextField(
                             title = "सम्पूर्ण क्षेत्रफल",
                             value = viewModel.totalArea,
                             onValueChange = viewModel::updateTotalArea,
                             placeholder = "सम्पूर्ण क्षेत्रफल दर्ज करें",
                             error = viewModel.totalAreaError,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            readOnly = true
                         )
                     }
 
@@ -501,7 +502,6 @@ fun PropertyScreen(
                                         viewModel.updatepConstructionTypeId(item.id)
                                         viewModel.selectedpConstructionType.value = item
                                         viewModel.updateConstructionTypeId("")
-                                        viewModel.selectedMohalla.value = null
                                         viewModel.fetchConstructionTypes(item.id)
                                     },
                                     displayText = { it.name },

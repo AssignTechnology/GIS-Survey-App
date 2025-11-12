@@ -692,10 +692,10 @@ class PropertyRegistrationViewModel @Inject constructor(
 //                    commercial.text,
 //                    "व्यावसायिक क्षेत्रफल"
 //                ); if (commercialError != null) isValid = false
-//                emptyAreaError = validateArea(
-//                    emptyArea.text,
-//                    "खाली क्षेत्रफल"
-//                ); if (emptyAreaError != null) isValid = false
+                emptyAreaError = validateArea(
+                    emptyArea.text,
+                    "खाली क्षेत्रफल"
+                ); if (emptyAreaError != null) isValid = false
                 totalAreaError = validateArea(
                     totalArea.text,
                     "सम्पूर्ण क्षेत्रफल"
@@ -790,12 +790,16 @@ class PropertyRegistrationViewModel @Inject constructor(
                     floorNo,
                     "फ्लोर नं"
                 );
+
+
                 if (floorNoError != null) isValid = false
+
+
                 pconstructionTypeError = validateRequiredSelection(
                     pconstructionTypeId,
                     "निर्माण के प्रकार"
                 );
-
+                if (pconstructionTypeError != null) isValid = false
                 constructionTypeError = validateRequiredSelection(
                     constructionTypeId,
                     "उपनिर्माण के प्रकार"
