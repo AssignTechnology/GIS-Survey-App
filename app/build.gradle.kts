@@ -2,16 +2,16 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.devtools.ksp") version "2.1.21-2.0.1"
+    id("com.google.devtools.ksp") version "2.3.2"
     id ("kotlin-kapt")
-    id("com.google.dagger.hilt.android") version "2.57"}
+    id("com.google.dagger.hilt.android") version "2.58"}
 
 android {
-    namespace = "com.example.npassigntech"
+    namespace = "com.example.npmlbd"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.npassigntech"
+        applicationId = "com.example.npmlbd"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -33,8 +33,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
     buildFeatures {
         compose = true
