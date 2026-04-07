@@ -18,5 +18,6 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "NpAssigntech"
+rootProject.name = "Assign GIS Survey"
 include(":app")
+5

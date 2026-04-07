@@ -7,14 +7,14 @@ plugins {
     id("com.google.dagger.hilt.android") version "2.58"}
 
 android {
-    namespace = "com.example.npmlbd"
+    namespace = "gis.data.survey"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.npmlbd"
+        applicationId = "gis.data.survey"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
+        versionCode = 2
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
