@@ -2,9 +2,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.devtools.ksp") version "2.3.2"
-    id ("kotlin-kapt")
-    id("com.google.dagger.hilt.android") version "2.58"}
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
+}
 
 android {
     namespace = "gis.data.survey"
@@ -14,8 +14,8 @@ android {
         applicationId = "gis.data.survey"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0"
+        versionCode = 4
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -54,6 +54,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.exifinterface)
+    implementation(libs.firebase.crashlytics.buildtools)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -73,10 +74,19 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
 
     // Retrofit & OkHttp
-    implementation(libs.retrofit)
-    implementation(libs.converter.gson)
-    implementation(libs.okhttp)
-    implementation(libs.logging.interceptor)
+//    implementation(libs.retrofit)
+//    implementation(libs.converter.gson)
+//    implementation(libs.okhttp)
+//    implementation(libs.logging.interceptor)
+
+    // Ktor Client dependencies
+    implementation("io.ktor:ktor-client-core:2.3.10")
+    implementation("io.ktor:ktor-client-cio:2.3.10") // या android engine
+    implementation("io.ktor:ktor-client-content-negotiation:2.3.10")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.10")
+
+    // Kotlinx Serialization
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
@@ -94,21 +104,19 @@ dependencies {
     implementation(libs.coil.compose)
 
 
-    dependencies {
-        // The following line is optional, as the core library is included indirectly by camera-camera2
-        implementation(libs.androidx.camera.core)
-        implementation(libs.androidx.camera.camera2)
-        // If you want to additionally use the CameraX Lifecycle library
-        implementation(libs.androidx.camera.lifecycle)
-        // If you want to additionally use the CameraX VideoCapture library
-        implementation(libs.androidx.camera.video)
-        // If you want to additionally use the CameraX View class
-        implementation(libs.androidx.camera.view)
-        // If you want to additionally add CameraX ML Kit Vision Integration
-        implementation(libs.androidx.camera.mlkit.vision)
-        // If you want to additionally use the CameraX Extensions library
-        implementation(libs.androidx.camera.extensions)
-    }
+    // The following line is optional, as the core library is included indirectly by camera-camera2
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    // If you want to additionally use the CameraX Lifecycle library
+    implementation(libs.androidx.camera.lifecycle)
+    // If you want to additionally use the CameraX VideoCapture library
+    implementation(libs.androidx.camera.video)
+    // If you want to additionally use the CameraX View class
+    implementation(libs.androidx.camera.view)
+    // If you want to additionally add CameraX ML Kit Vision Integration
+    implementation(libs.androidx.camera.mlkit.vision)
+    // If you want to additionally use the CameraX Extensions library
+    implementation(libs.androidx.camera.extensions)
      //theme management
     implementation(libs.androidx.datastore.preferences)
 

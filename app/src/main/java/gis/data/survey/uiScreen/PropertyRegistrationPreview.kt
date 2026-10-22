@@ -10,20 +10,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -41,7 +33,14 @@ import gis.data.survey.component.Result
 fun PropertyRegistrationPreviewScreen(
     navController: NavHostController,
     viewModel: PropertyRegistrationViewModel = androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel(
-        navController.getBackStackEntry(Screen.PropertyRegistration.route)
+        remember(navController.currentBackStackEntry) {
+            val entry = try {
+                navController.getBackStackEntry(Screen.PropertyRegistration.route)
+            } catch (_: Exception) {
+                null
+            }
+            entry ?: navController.currentBackStackEntry!!
+        }
     )
 ) {
     val context = LocalContext.current
@@ -74,72 +73,60 @@ fun PropertyRegistrationPreviewScreen(
                     )
                     PreviewField("क्रम कोड", viewModel.sequence ?: "Not available")
                     PreviewField("क्रम संख्या", viewModel.sequenceNo.text)
-                    PreviewField("संम्पत्ति", viewModel.property ?: "Not selected")
 
-                    when (viewModel.propertyPos) {
-                        0 -> {
-                            PreviewField("भूखण्ड/प्लाट", viewModel.bhukhandPlat ?: "Not selected")
-//                            PreviewField("आवासीय क्षेत्रफल", viewModel.residential.text)
-//                            PreviewField("व्यावसायिक क्षेत्रफल", viewModel.commercial.text)
-//                            PreviewField("खाली क्षेत्रफल", viewModel.emptyArea.text)
-                            PreviewField("सम्पूर्ण क्षेत्रफल", viewModel.totalArea.text)
-                        }
+                    PreviewField(
+                        "संम्पत्ति के प्रकार",
+                        viewModel.selectedPropertyType.value?.propertyType ?: viewModel.propertyType ?: "Not selected"
+                    )
+                    PreviewField(
+                        "संम्पत्ति",
+                        viewModel.selectedBoundProperty.value?.displayName ?: viewModel.property ?: "Not selected"
+                    )
 
-                        1 -> {
-                            PreviewField(
-                                "तालाब/पोखरा/कुआँ/नहर/इत्यादि",
-                                viewModel.talabPokharaEtc ?: "Not selected"
-                            )
-                        }
+                    if (viewModel.selectedSubProperty.value != null) {
+                        PreviewField("उप-संपत्ति (Sub-Property)", viewModel.selectedSubProperty.value?.subPropertyType ?: "")
+                    }
 
-                        2 -> {
-                            PreviewField(
-                                "संम्पत्ति के प्रकार",
-                                viewModel.propertyType ?: "Not selected"
-                            )
-                            PreviewField("सरकारी/गैर सरकारी", viewModel.govNonGov ?: "Not selected")
-                            when (viewModel.govNonGovPos) {
-                                0 -> PreviewField(
-                                    "सरकारी",
-                                    viewModel.selectedGov.value?.govProperty ?: "Not selected"
-                                )
+                    if (!viewModel.govNonGov.isNullOrBlank()) {
+                        PreviewField("सरकारी/गैर सरकारी", viewModel.govNonGov ?: "Not selected")
+                    }
 
-                                1 -> PreviewField(
-                                    "गैर सरकारी",
-                                    viewModel.selectedNonGov.value?.privateProperty
-                                        ?: "Not selected"
-                                )
-                            }
-                            PreviewField("फ्लोर नं", viewModel.floorNo ?: "Not selected")
-                            PreviewField(
-                                "निर्माण के प्रकार",
-                                viewModel.selectedpConstructionType.value?.name ?: "Not selected"
-                            )
-                            PreviewField(
-                                "उपनिर्माण के प्रकार",
-                                viewModel.selectedConstructionType.value?.name ?: "Not selected"
-                            )
-                            PreviewField("निर्माण वर्ष", viewModel.constructionYear.text)
-                            if (viewModel.propertyTypePos == 0 || viewModel.propertyTypePos == 2) {
-                                PreviewField("आवासीय क्ष्रेत्र", viewModel.residential.text)
-                            }
-                            if (viewModel.propertyTypePos == 1 || viewModel.propertyTypePos == 2) {
-                                PreviewField("व्यावसायिक क्ष्रेत्र", viewModel.commercial.text)
-                            }
-                            PreviewField("खाली क्ष्रेत्र", viewModel.emptyArea.text)
-                            PreviewField("कुल क्ष्रेत्र", viewModel.totalArea.text)
-                        }
+                    if (!viewModel.floorNo.isNullOrBlank()) {
+                        PreviewField("फ्लोर नं", viewModel.floorNo ?: "Not selected")
+                    }
+
+                    if (viewModel.selectedpConstructionType.value != null) {
+                        PreviewField("निर्माण के प्रकार", viewModel.selectedpConstructionType.value?.name ?: "Not selected")
+                    }
+
+                    if (viewModel.selectedConstructionType.value != null) {
+                        PreviewField("उपनिर्माण के प्रकार", viewModel.selectedConstructionType.value?.name ?: "Not selected")
+                    }
+
+                    if (viewModel.residential.text.isNotBlank()) {
+                        PreviewField("आवासीय क्षेत्रफल", viewModel.residential.text)
+                    }
+                    if (viewModel.commercial.text.isNotBlank()) {
+                        PreviewField("व्यावसायिक क्षेत्रफल", viewModel.commercial.text)
+                    }
+                    if (viewModel.emptyArea.text.isNotBlank()) {
+                        PreviewField("खाली क्षेत्रफल", viewModel.emptyArea.text)
+                    }
+                    if (viewModel.totalArea.text.isNotBlank()) {
+                        PreviewField("सम्पूर्ण क्षेत्रफल", viewModel.totalArea.text)
+                    }
+
+                    if (viewModel.talabPokharaEtc != null) {
+                        PreviewField("तालाब/पोखरा/कुआँ/नहर/इत्यादि", viewModel.talabPokharaEtc ?: "Not selected")
                     }
 
                     PreviewField("संम्पत्ति संख्या", viewModel.propertyNo.text)
                     PreviewField("मुखिया/संम्पत्ति का नाम", viewModel.ownerPropertyName.text)
                     PreviewField("सम्बंध", viewModel.relation ?: "Not selected")
                     PreviewField("पिता/पति/मालिक का नाम", viewModel.fatherHusbandOwner.text)
-                    PreviewField("लिंग", viewModel.gender ?: "Not selected")
-                    PreviewField("धर्म", viewModel.religion ?: "Not selected")
                     PreviewField("मोबाइल नं", viewModel.contactNumber.text)
                     PreviewField("पता", viewModel.address.text)
-                    PreviewField("रोड की चौड़ाई", viewModel.roadWide ?: "Not selected")
+                    PreviewField("रोड की चौड़ाई", viewModel.selectedRoadWide.value?.roadWide ?: viewModel.roadWide ?: "Not selected")
 
                     viewModel.propertyImage?.uri?.let { uri ->
                         Text(
@@ -176,7 +163,7 @@ fun PropertyRegistrationPreviewScreen(
                                 .padding(end = 8.dp)
                                 .height(50.dp)
                         ) {
-                            Text("Back", style = MaterialTheme.typography.bodyLarge)
+                            Text("Edit", style = MaterialTheme.typography.bodyLarge)
                         }
 
                         Button(
@@ -202,31 +189,27 @@ fun PropertyRegistrationPreviewScreen(
                                     modifier = Modifier.size(24.dp)
                                 )
                             } else {
-                                Text("Submit", style = MaterialTheme.typography.bodyLarge)
+                                Text("Next", style = MaterialTheme.typography.bodyLarge)
                             }
                         }
                     }
                 }
             }
 
-            var showSuccessDialog by remember { mutableStateOf(false) }
-            var ulbCodeToShow by remember { mutableStateOf("") }
-
             LaunchedEffect(propertyRes) {
                 when (propertyRes) {
                     is Result.Success -> {
                         val res = (propertyRes as Result.Success<PropertyRes>).data
-                        if (res.nP.responseCode == "200" && res.nP.responseMessage == "Success") {
-                            // ULB कोड को सेव करें और डायलॉग दिखाएं
-                            ulbCodeToShow = res.nP.responseData.ulbCode
-                            showSuccessDialog = true
+                        if (res.responseCode == "200") {
+                            navController.navigate(Screen.PropertyPhotoUpload.route)
                         } else {
-                            Toast.makeText(context, res.nP.responseMessage, Toast.LENGTH_LONG)
+                            Toast.makeText(context, res.responseMessage, Toast.LENGTH_LONG)
                                 .show()
                         }
                     }
 
                     is Result.Error -> {
+
                         Toast.makeText(
                             context,
                             "त्रुटि: ${(propertyRes as Result.Error).errorMessage}",
@@ -237,53 +220,8 @@ fun PropertyRegistrationPreviewScreen(
                     else -> {}
                 }
             }
-
-            if (showSuccessDialog) {
-                AlertDialog(
-                    onDismissRequest = { /* यूजर बाहर क्लिक करके इसे बंद न कर पाए */ },
-                    title = {
-                        Text(text = "पंजीकरण सफल!", fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
-                    },
-                    text = {
-                        Column(horizontalAlignment = Alignment.Start) {
-                            Text(text = "आपका फॉर्म सफलतापूर्वक जमा हो गया है।", fontSize = 14.sp)
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // ULB Code Section (Highlighted)
-                            Row {
-                                Text(text = "प्रॉपर्टी आईडी: ", fontWeight = FontWeight.Bold)
-                                Text(
-                                    text = ulbCodeToShow,
-                                    color = Color(0xFF1B5E20), // Green Color
-                                    fontWeight = FontWeight.ExtraBold, // Extra Bold
-                                    fontSize = 16.sp
-                                )
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                showSuccessDialog = false // डायलॉग बंद करें
-
-                                // अब नेविगेशन परफॉर्म करें
-                                navController.navigate(Screen.PropertyRegistration.route) {
-                                    popUpTo(Screen.PropertyRegistrationPreview.route) {
-                                        inclusive = true
-                                    }
-                                }
-                                Toast.makeText(context, "Redirecting...", Toast.LENGTH_SHORT).show()
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B5E20))
-                        ) {
-                            Text("OK", color = Color.White)
-                        }
-                    }
-                )
-            }
         }
     )
-
 }
 
 @Composable
@@ -297,7 +235,7 @@ fun PreviewField(label: String, value: String) {
         Text(
             text = label,
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = 4.dp)
+            modifier = Modifier.padding(bottom =.4.dp)
         )
         Text(
             text = value,

@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,7 +32,8 @@ fun ImagePickerSection(
     onImageSelected: (ImagePicker.ImageResult) -> Unit,
     onShowImagePicker: () -> Unit,
     onClearImage: () -> Unit,
-    onShowCameraPreview: () -> Unit
+    onShowCameraPreview: () -> Unit,
+    onEditImage: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
@@ -46,6 +48,7 @@ fun ImagePickerSection(
                         .clip(RoundedCornerShape(8.dp)),
                     contentScale = ContentScale.FillBounds
                 )
+                // Delete button
                 IconButton(
                     onClick = onClearImage,
                     modifier = Modifier
@@ -61,6 +64,25 @@ fun ImagePickerSection(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Clear Image",
                         tint = MaterialTheme.colorScheme.onError
+                    )
+                }
+
+                // Edit button
+                IconButton(
+                    onClick = onEditImage,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(15.dp)
+                        .size(40.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                            CircleShape
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit Image",
+                        tint = MaterialTheme.colorScheme.onPrimary
                     )
                 }
             }

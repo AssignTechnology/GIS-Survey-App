@@ -10,10 +10,17 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import gis.data.survey.component.ImagePicker
 import gis.data.survey.model.requestModel.PropertyReq
+import gis.data.survey.model.requestModel.PropertyKycReq
+import gis.data.survey.model.responseModel.PropertyKycRes
+import gis.data.survey.model.responseModel.BindPropertyTypeRes
 import gis.data.survey.model.responseModel.ConstructionTypeRes
+import gis.data.survey.model.responseModel.FloorNoRes
 import gis.data.survey.model.responseModel.GovPropertyRes
 import gis.data.survey.model.responseModel.MohallaRes
 import gis.data.survey.model.responseModel.NonGovPropertyRes
+import gis.data.survey.model.responseModel.PropertyTypeRes
+import gis.data.survey.model.responseModel.RoadTypeRes
+import gis.data.survey.model.responseModel.SubPropertyTypeRes
 import gis.data.survey.model.responseModel.PropertyRes
 import gis.data.survey.model.responseModel.SequenceRes
 import gis.data.survey.model.responseModel.WardRes
@@ -35,6 +42,12 @@ class PropertyRegistrationViewModel @Inject constructor(
     // API response states
     private val _propertyRes = MutableStateFlow<Result<PropertyRes>>(Result.Idle)
     val propertyRes: StateFlow<Result<PropertyRes>> = _propertyRes.asStateFlow()
+
+    private val _kycRes = MutableStateFlow<Result<PropertyKycRes>>(Result.Idle)
+    val kycRes: StateFlow<Result<PropertyKycRes>> = _kycRes.asStateFlow()
+
+    var registeredUniqueId by mutableStateOf("")
+        private set
     private val _wardState = MutableStateFlow<Result<WardRes>>(Result.Idle)
     val wardState: StateFlow<Result<WardRes>> = _wardState.asStateFlow()
 
@@ -44,14 +57,205 @@ class PropertyRegistrationViewModel @Inject constructor(
     private val _pconstructionType = MutableStateFlow<Result<ConstructionTypeRes>>(Result.Idle)
     val pconstructionType: StateFlow<Result<ConstructionTypeRes>> = _pconstructionType.asStateFlow()
 
-    private val _roadWide = MutableStateFlow<Result<ConstructionTypeRes>>(Result.Idle)
-    val roadWideArea: StateFlow<Result<ConstructionTypeRes>> = _roadWide.asStateFlow()
+    private val _roadWide = MutableStateFlow<Result<RoadTypeRes>>(Result.Idle)
+    val roadWideArea: StateFlow<Result<RoadTypeRes>> = _roadWide.asStateFlow()
 
     private val _nonGov = MutableStateFlow<Result<NonGovPropertyRes>>(Result.Idle)
     val nonGov: StateFlow<Result<NonGovPropertyRes>> = _nonGov.asStateFlow()
 
     private val _gov = MutableStateFlow<Result<GovPropertyRes>>(Result.Idle)
     val gov: StateFlow<Result<GovPropertyRes>> = _gov.asStateFlow()
+
+    private val _propertyTypeState = MutableStateFlow<Result<PropertyTypeRes>>(Result.Idle)
+    val propertyTypeState: StateFlow<Result<PropertyTypeRes>> = _propertyTypeState.asStateFlow()
+
+    private val _floorState = MutableStateFlow<Result<FloorNoRes>>(Result.Idle)
+    val floorState: StateFlow<Result<FloorNoRes>> = _floorState.asStateFlow()
+
+    var selectedFloor = mutableStateOf<FloorNoRes.NP.ResponseData?>(null)
+
+    fun updateFloor(item: FloorNoRes.NP.ResponseData?) {
+        selectedFloor.value = item
+        floorNo = item?.floorNo
+        floorNoError = null
+    }
+
+    fun fetchFloorNos() {
+        viewModelScope.launch {
+            _floorState.value = Result.Loading
+            try {
+                val response = repository.getFloorNo()
+                if (response.isSuccessful && response.body() != null) {
+                    _floorState.value = Result.Success(response.body()!!)
+                } else {
+                    _floorState.value = Result.Error(response.code(), response.errorBody()?.string() ?: "Unknown error")
+                }
+            } catch (e: Exception) {
+                _floorState.value = Result.Error(errorMessage = e.message ?: "Unexpected error")
+            }
+        }
+    }
+
+    var selectedPropertyType = mutableStateOf<PropertyTypeRes.NP.ResponseData?>(null)
+
+    fun fetchPropertyTypes() {
+        viewModelScope.launch {
+            _propertyTypeState.value = Result.Loading
+            try {
+                val response = repository.getPropertyType()
+                if (response.isSuccessful && response.body() != null) {
+                    android.util.Log.d("PropertyTypeAPI", "Response success: ${response.body()}")
+                    _propertyTypeState.value = Result.Success(response.body()!!)
+                } else {
+                    val err = response.errorBody()?.string() ?: "Unknown error"
+                    android.util.Log.e("PropertyTypeAPI", "Response error: $err")
+                    _propertyTypeState.value = Result.Error(response.code(), err)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("PropertyTypeAPI", "Exception: ${e.message}")
+                _propertyTypeState.value = Result.Error(errorMessage = e.message ?: "Unexpected error")
+            }
+        }
+    }
+
+    fun selectPropertyType(item: PropertyTypeRes.NP.ResponseData) {
+        selectedPropertyType.value = item
+        propertyType = item.propertyType
+        propertyTypeError = null
+        selectedBoundProperty.value = null
+        selectedSubProperty.value = null
+        subPropertyId = null
+
+        // Fetch properties bound to this RCMPropertyId
+        fetchBindPropertyType(item.rcmPropertyId)
+
+        // Fetch sub-property types if TypeId is 1 (e.g. Bank & ATM)
+        if (item.typeId == 1) {
+            fetchSubPropertyTypes(item.id.toString())
+        }
+
+        // Clear gov/non-gov if GovPri is 0
+        if (item.govPri == 0) {
+            govNonGov = null
+            govNonGovPos = null
+            govId = null
+            selectedGov.value = null
+            nonGovId = null
+            selectedNonGov.value = null
+        }
+
+        // Clear construction type if it violates CTypeId rule (0 = disable plot, 1 = only plot)
+        val cTypeId = item.cTypeId
+        val currentPConst = selectedpConstructionType.value
+        if (currentPConst != null) {
+            val isPlot = currentPConst.id == "1"
+            if ((cTypeId == 0 && isPlot) || (cTypeId == 1 && !isPlot)) {
+                selectedpConstructionType.value = null
+                pconstructionTypeId = null
+                updateConstructionTypeId("")
+            }
+        }
+
+        val name = item.propertyType
+        when {
+            name.contains("भूखण्ड", ignoreCase = true) || name.contains("प्लाट", ignoreCase = true) || name.contains("भूमि", ignoreCase = true) -> {
+                propertyTypePos = 2 // भूखंड/प्लाट
+            }
+            name.contains("मिश्रित", ignoreCase = true) || name.contains("+", ignoreCase = true) -> {
+                propertyTypePos = 3 // मिश्रित
+            }
+            name.contains("निजी मकान", ignoreCase = true) || (name.contains("आवास", ignoreCase = true) && !name.contains("+", true) && !name.contains("दुकान", true) && !name.contains("क्लीनिक", true)) -> {
+                propertyTypePos = 0 // आवासीय
+            }
+            else -> {
+                propertyTypePos = 1 // व्यावसायिक
+            }
+        }
+    }
+
+    private val _bindPropertyTypeState = MutableStateFlow<Result<BindPropertyTypeRes>>(Result.Idle)
+    val bindPropertyTypeState: StateFlow<Result<BindPropertyTypeRes>> = _bindPropertyTypeState.asStateFlow()
+
+    var selectedBoundProperty = mutableStateOf<BindPropertyTypeRes.NP.ResponseData?>(null)
+
+    private val _subPropertyState = MutableStateFlow<Result<SubPropertyTypeRes>>(Result.Idle)
+    val subPropertyState: StateFlow<Result<SubPropertyTypeRes>> = _subPropertyState.asStateFlow()
+
+    var selectedSubProperty = mutableStateOf<SubPropertyTypeRes.NP.ResponseData?>(null)
+    var subPropertyId by mutableStateOf<String?>(null)
+        private set
+
+    fun updateSubProperty(item: SubPropertyTypeRes.NP.ResponseData?) {
+        selectedSubProperty.value = item
+        subPropertyId = item?.id?.toString()
+    }
+
+    fun fetchSubPropertyTypes(propertyTypeId: String) {
+        viewModelScope.launch {
+            _subPropertyState.value = Result.Loading
+            try {
+                val response = repository.getSubPropertyType(propertyTypeId)
+                if (response.isSuccessful && response.body() != null) {
+                    android.util.Log.d("SubPropertyAPI", "Response success: ${response.body()}")
+                    _subPropertyState.value = Result.Success(response.body()!!)
+                } else {
+                    val err = response.errorBody()?.string() ?: "Unknown error"
+                    android.util.Log.e("SubPropertyAPI", "Response error: $err")
+                    _subPropertyState.value = Result.Error(response.code(), err)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("SubPropertyAPI", "Exception: ${e.message}")
+                _subPropertyState.value = Result.Error(errorMessage = e.message ?: "Unexpected error")
+            }
+        }
+    }
+
+    fun fetchBindPropertyType(rcmPropertyId: Int) {
+        viewModelScope.launch {
+            _bindPropertyTypeState.value = Result.Loading
+            try {
+                val response = repository.bindPropertyType(rcmPropertyId)
+                if (response.isSuccessful && response.body() != null) {
+                    val body = response.body()!!
+                    android.util.Log.d("BindPropertyTypeAPI", "Response success: $body")
+                    _bindPropertyTypeState.value = Result.Success(body)
+
+                    val propertyList = body.nP.responseData
+                    onBindPropertyTypeLoaded(propertyList, selectedPropertyType.value)
+                } else {
+                    val err = response.errorBody()?.string() ?: "Unknown error"
+                    android.util.Log.e("BindPropertyTypeAPI", "Response error: $err")
+                    _bindPropertyTypeState.value = Result.Error(response.code(), err)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("BindPropertyTypeAPI", "Exception: ${e.message}")
+                _bindPropertyTypeState.value = Result.Error(errorMessage = e.message ?: "Unexpected error")
+            }
+        }
+    }
+
+    private fun onBindPropertyTypeLoaded(propertyList: List<BindPropertyTypeRes.NP.ResponseData>, selectedType: PropertyTypeRes.NP.ResponseData?) {
+        if (propertyList.isEmpty()) return
+
+        val targetRcmId = selectedType?.rcmPropertyId ?: 0
+
+        // Match directly by Id == rcmPropertyId first as requested by user
+        val matched = propertyList.find { it.id == targetRcmId }
+            ?: propertyList.find { item ->
+                val pName = item.property
+                val typeName = selectedType?.propertyType ?: ""
+                when {
+                    typeName.contains("दुकान", true) || typeName.contains("व्यावसायिक", true) || typeName.contains("होटल", true) || typeName.contains("रेस्टोरेंट", true) || typeName.contains("मॉल", true) || typeName.contains("कारखाना", true) -> pName.contains("व्यावसायिक", true)
+                    typeName.contains("भूखण्ड", true) || typeName.contains("प्लाट", true) || typeName.contains("भूमि", true) -> pName.contains("भूखण्ड", true) || pName.contains("प्लाट", true)
+                    typeName.contains("मिश्रित", true) || typeName.contains("+", true) -> pName.contains("मिश्रित", true)
+                    typeName.contains("तालाब", true) || typeName.contains("कुआ", true) -> pName.contains("तालाब", true) || pName.contains("कुआ", true)
+                    else -> pName.contains("आवासीय", true) || pName.contains("मकान", true)
+                }
+            }
+            ?: propertyList[0]
+
+        selectedBoundProperty.value = matched
+    }
 
     private val _mohallaState = MutableStateFlow<Result<MohallaRes>>(Result.Idle)
     val mohallaState: StateFlow<Result<MohallaRes>> = _mohallaState.asStateFlow()
@@ -89,7 +293,7 @@ class PropertyRegistrationViewModel @Inject constructor(
 
     var selectedConstructionType = mutableStateOf<ConstructionTypeRes.NP.ResponseData?>(null)
     var selectedpConstructionType = mutableStateOf<ConstructionTypeRes.NP.ResponseData?>(null)
-    var selectedRoadWide = mutableStateOf<ConstructionTypeRes.NP.ResponseData?>(null)
+    var selectedRoadWide = mutableStateOf<RoadTypeRes.NP.ResponseData?>(null)
 
     var nonGovId by mutableStateOf<String?>(null)
         private set
@@ -101,6 +305,32 @@ class PropertyRegistrationViewModel @Inject constructor(
 
     var selectedNonGov = mutableStateOf<NonGovPropertyRes.NP.ResponseData?>(null)
 
+    fun selectNonGovProperty(item: NonGovPropertyRes.NP.ResponseData) {
+        nonGovId = item.id.toString()
+        selectedNonGov.value = item
+        nonGovError = null
+
+        val name = item.privateProperty
+        when {
+            name.contains("दुकान", ignoreCase = true) || name.contains("व्यावसायिक", ignoreCase = true) || name.contains("कॉमर्शियल", ignoreCase = true) || name.contains("होटल", ignoreCase = true) || name.contains("गोदाम", ignoreCase = true) -> {
+                propertyType = "व्यावसायिक"
+                propertyTypePos = 1
+            }
+            name.contains("भूखण्ड", ignoreCase = true) || name.contains("प्लाट", ignoreCase = true) || name.contains("भूमि", ignoreCase = true) -> {
+                propertyType = "भूखंड/प्लाट"
+                propertyTypePos = 2
+            }
+            name.contains("मिश्रित", ignoreCase = true) || name.contains("+", ignoreCase = true) -> {
+                propertyType = "मिश्रित"
+                propertyTypePos = 3
+            }
+            else -> {
+                propertyType = "आवासीय"
+                propertyTypePos = 0
+            }
+        }
+    }
+
     var govId by mutableStateOf<String?>(null)
         private set
 
@@ -110,6 +340,28 @@ class PropertyRegistrationViewModel @Inject constructor(
     }
 
     var selectedGov = mutableStateOf<GovPropertyRes.NP.ResponseData?>(null)
+
+    fun selectGovProperty(item: GovPropertyRes.NP.ResponseData) {
+        govId = item.id.toString()
+        selectedGov.value = item
+        govError = null
+
+        val name = item.govProperty
+        when {
+            name.contains("दुकान", ignoreCase = true) || name.contains("व्यावसायिक", ignoreCase = true) -> {
+                propertyType = "व्यावसायिक"
+                propertyTypePos = 1
+            }
+            name.contains("भूखण्ड", ignoreCase = true) || name.contains("प्लाट", ignoreCase = true) -> {
+                propertyType = "भूखंड/प्लाट"
+                propertyTypePos = 2
+            }
+            else -> {
+                propertyType = "आवासीय"
+                propertyTypePos = 0
+            }
+        }
+    }
 
     var mohallaId by mutableStateOf<String?>(null)
         private set
@@ -139,7 +391,6 @@ class PropertyRegistrationViewModel @Inject constructor(
     var commercial by mutableStateOf(TextFieldValue())
     var emptyArea by mutableStateOf(TextFieldValue())
     var totalArea by mutableStateOf(TextFieldValue())
-    var constructionYear by mutableStateOf(TextFieldValue())
     var propertyImage by mutableStateOf<ImagePicker.ImageResult?>(null)
 
     // Selections
@@ -200,7 +451,6 @@ class PropertyRegistrationViewModel @Inject constructor(
     var commercialError by mutableStateOf<String?>(null)
     var emptyAreaError by mutableStateOf<String?>(null)
     var totalAreaError by mutableStateOf<String?>(null)
-    var constructionYearError by mutableStateOf<String?>(null)
     var propertyImageError by mutableStateOf<String?>(null)
     var propertyError by mutableStateOf<String?>(null)
     var bhukhandPlatError by mutableStateOf<String?>(null)
@@ -318,10 +568,7 @@ class PropertyRegistrationViewModel @Inject constructor(
         totalAreaError = validateArea(value.text, "सम्पूर्ण क्षेत्रफल")
     }
 
-    fun updateConstructionYear(value: TextFieldValue) {
-        constructionYear = value
-        constructionYearError = validateConstructionYear(value.text)
-    }
+
 
     fun updatePropertyImage(image: ImagePicker.ImageResult?) {
         propertyImage = image
@@ -463,19 +710,14 @@ class PropertyRegistrationViewModel @Inject constructor(
         }
     }
 
-    private fun validateConstructionYear(value: String): String? {
-        return when {
-            value.isBlank() -> "निर्माण वर्ष आवश्यक है"
-            !value.matches(Regex("^[0-9]{4}$")) -> "निर्माण वर्ष 4 अंकों का होना चाहिए"
-            (value.toIntOrNull()
-                ?: 0) !in 1800..2025 -> "निर्माण वर्ष 1800 और 2025 के बीच होना चाहिए"
 
-            else -> null
-        }
-    }
 
     private fun validatePropertyImage(image: ImagePicker.ImageResult?): String? {
-        return if (image?.uri == null) "संम्पत्ति की फोटो आवश्यक है" else null
+        return if (image == null || image.uri == null || image.base64.isNullOrBlank()) {
+            "संपत्ति की फोटो अपलोड करना आवश्यक है"
+        } else {
+            null
+        }
     }
 
     private fun validateRequiredSelection(value: Any?, fieldName: String): String? {
@@ -502,8 +744,7 @@ class PropertyRegistrationViewModel @Inject constructor(
         floorNoError = null
         constructionTypeId = null
         constructionTypeError = null
-        constructionYear = TextFieldValue()
-        constructionYearError = null
+
         residential = TextFieldValue()
         residentialError = null
         commercial = TextFieldValue()
@@ -633,7 +874,7 @@ class PropertyRegistrationViewModel @Inject constructor(
         viewModelScope.launch {
             _roadWide.value = Result.Loading
             try {
-                val response = repository.getBindRoadWide()
+                val response = repository.getRoadType()
                 _roadWide.value = if (response.isSuccessful && response.body() != null) {
                     Result.Success(response.body()!!)
                 } else {
@@ -646,45 +887,30 @@ class PropertyRegistrationViewModel @Inject constructor(
         }
     }
 
+    // Validate form (without image)
+    fun validateForm(context: Context): Boolean {
+        var isValid = true
+        sequenceNoError = validateSequenceNo(sequenceNo.text); if (sequenceNoError != null) isValid = false
+        propertyNoError = validatePropertyNo(propertyNo.text); if (propertyNoError != null) isValid = false
+        ownerPropertyNameError = validateName(ownerPropertyName.text); if (ownerPropertyNameError != null) isValid = false
+        fatherHusbandOwnerError = validateName(fatherHusbandOwner.text); if (fatherHusbandOwnerError != null) isValid = false
+        contactNumberError = validateContactNumber(contactNumber.text); if (contactNumberError != null) isValid = false
+        addressError = validateAddress(address.text); if (addressError != null) isValid = false
+        relationError = validateRequiredSelection(relation, "सम्बंध"); if (relationError != null) isValid = false
+        roadWideError = validateRequiredSelection(roadWide, "रोड की चौड़ाई"); if (roadWideError != null) isValid = false
+        wardError = validateRequiredSelection(wardId, "वार्ड"); if (wardError != null) isValid = false
+        mohallaError = validateRequiredSelection(mohallaId, "मोहल्ला"); if (mohallaError != null) isValid = false
+        return isValid
+    }
+
+    fun validateImage(): Boolean {
+        propertyImageError = validatePropertyImage(propertyImage)
+        return propertyImageError == null
+    }
+
     // Submit form
     fun submitForm(context: Context, isPreview: Boolean = false): Boolean {
-        var isValid = true
-        // Validate common fields
-        sequenceNoError =
-            validateSequenceNo(sequenceNo.text); if (sequenceNoError != null) isValid = false
-        propertyNoError =
-            validatePropertyNo(propertyNo.text); if (propertyNoError != null) isValid = false
-        ownerPropertyNameError =
-            validateName(ownerPropertyName.text); if (ownerPropertyNameError != null) isValid =
-            false
-        fatherHusbandOwnerError =
-            validateName(fatherHusbandOwner.text); if (fatherHusbandOwnerError != null) isValid =
-            false
-        contactNumberError =
-            validateContactNumber(contactNumber.text); if (contactNumberError != null) isValid =
-            false
-        addressError = validateAddress(address.text); if (addressError != null) isValid = false
-        propertyImageError =
-            validatePropertyImage(propertyImage); if (propertyImageError != null) isValid = false
-        relationError =
-            validateRequiredSelection(relation, "सम्बंध"); if (relationError != null) isValid =
-            false
-        genderError = validateRequiredSelection(gender, "लिंग"); if (genderError != null) isValid =
-            false
-        religionError =
-            validateRequiredSelection(religion, "धर्म"); if (religionError != null) isValid = false
-        roadWideError = validateRequiredSelection(
-            roadWide,
-            "रोड की चौड़ाई"
-        ); if (roadWideError != null) isValid = false
-        propertyError =
-            validateRequiredSelection(property, "संम्पत्ति"); if (propertyError != null) isValid =
-            false
-        wardError = validateRequiredSelection(wardId, "वार्ड"); if (wardError != null) isValid =
-            false
-        mohallaError =
-            validateRequiredSelection(mohallaId, "मोहल्ला"); if (mohallaError != null) isValid =
-            false
+        var isValid = validateForm(context)
 
         // Validate property-specific fields
         when (propertyPos) {
@@ -815,13 +1041,26 @@ class PropertyRegistrationViewModel @Inject constructor(
                     "उपनिर्माण के प्रकार"
                 );
                 if (constructionTypeError != null) isValid = false
-                constructionYearError =
-                    validateConstructionYear(constructionYear.text); if (constructionYearError != null) isValid = false
+
             }
         }
 
         if (!isValid) {
-            Toast.makeText(context, "कृपया सभी आवश्यक फ़ील्ड ठीक करें", Toast.LENGTH_LONG).show()
+            val failedFields = mutableListOf<String>()
+            if (sequenceNoError != null) failedFields.add("क्रम संख्या")
+            if (propertyNoError != null) failedFields.add("संम्पत्ति संख्या")
+            if (ownerPropertyNameError != null) failedFields.add("मुखिया/नाम")
+            if (fatherHusbandOwnerError != null) failedFields.add("पिता/पति नाम")
+            if (contactNumberError != null) failedFields.add("मोबाइल नंबर")
+            if (addressError != null) failedFields.add("पता")
+            if (relationError != null) failedFields.add("सम्बंध")
+            if (roadWideError != null) failedFields.add("रोड की चौड़ाई")
+            if (wardError != null) failedFields.add("वार्ड")
+            if (mohallaError != null) failedFields.add("मोहल्ला")
+
+            val msg = "त्रुटि: ${failedFields.joinToString(", ")}"
+            android.util.Log.e("ValidationFailed", msg)
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             return false
         }
 
@@ -829,35 +1068,32 @@ class PropertyRegistrationViewModel @Inject constructor(
         if (isPreview) {
             return true
         }
+        val userIdVal = SharedPreferencesManager.getInstance(context).getValue("UserId", "").toString()
+            .ifBlank { SharedPreferencesManager.getInstance(context).getValue("UserNumber", "App").toString() }
+        val ipAddressVal = getDeviceIpAddress()
+
         val propertyReq = PropertyReq(
             wardNo = wardId ?: "",
             mohallaName = mohallaId ?: "",
-            sequence = sequence?.let { it + sequenceNo.text } ?: sequenceNo.text,
-            property = property ?: "",
-            bhukhandPlotType = bhukhandPlat ?: "",
-            totalArea = totalArea.text,
-            emptyArea = emptyArea.text,
-            residential = residential.text,
-            commercial = commercial.text,
-            naharTalab = talabPokharaEtc ?: "",
-            propertyType = propertyType ?: "",
-            govNonGov = govNonGov ?: "",
-            govProperty = govId ?: "",
-            nonGovProperty = nonGovId ?: "",
-            floorNo = floorNo ?: "",
-            constructionType = constructionTypeId ?: "",
-            primaryConstructionType = pconstructionTypeId ?: "",
-            constructionYear = constructionYear.text,
-            propertyNo = propertyNo.text,
             ownerName = ownerPropertyName.text,
             fatherHusbandName = fatherHusbandOwner.text,
             relation = relation ?: "",
-            gender = gender ?: "",
-            religious = religion ?: "",
+            sequence = sequence?.let { it + sequenceNo.text } ?: sequenceNo.text,
             mobileNo = contactNumber.text,
+            rodeWide = selectedRoadWide.value?.id?.toString() ?: roadWide ?: "",
+            property = selectedBoundProperty.value?.id?.toString() ?: propertyPos?.toString() ?: "",
+            propertyType = selectedPropertyType.value?.id?.toString() ?: "",
+            subPropertyType = subPropertyId ?: selectedSubProperty.value?.id?.toString() ?: "",
+            govNonGov = govNonGov ?: "",
+            residential = residential.text,
+            commercial = commercial.text,
+            totalArea = totalArea.text,
+            floorNo = selectedFloor.value?.id?.toString() ?: floorNo ?: "",
+            emptyArea = emptyArea.text,
+            constructionType = constructionTypeId?.takeIf { !it.isBlank() } ?: pconstructionTypeId ?: "",
             address = address.text,
-            rodeWide = roadWide ?: "",
-            deviceName = SharedPreferencesManager.getInstance(context).getValue("UserNumber","").toString(),
+            ipAddress = ipAddressVal,
+            userId = userIdVal,
             image = propertyImage?.base64 ?: ""
         )
 
@@ -865,10 +1101,12 @@ class PropertyRegistrationViewModel @Inject constructor(
             _propertyRes.value = Result.Loading
             try {
                 val response = repository.getPropertyRegistration(propertyReq)
-                _propertyRes.value = if (response.isSuccessful && response.body() != null) {
-                    Result.Success(response.body()!!)
+                if (response.isSuccessful && response.body() != null) {
+                    val body = response.body()!!
+                    registeredUniqueId = body.uniqueId
+                    _propertyRes.value = Result.Success(body)
                 } else {
-                    Result.Error(response.code(), response.errorBody()?.string() ?: "Unknown error")
+                    _propertyRes.value = Result.Error(response.code(), response.errorBody()?.string() ?: "Unknown error")
                 }
             } catch (e: Exception) {
                 _propertyRes.value = Result.Error(errorMessage = e.message ?: "Unexpected error")
@@ -876,5 +1114,121 @@ class PropertyRegistrationViewModel @Inject constructor(
         }
 
         return true
+    }
+
+    fun submitPropertyKyc(context: Context): Boolean {
+        if (!validateImage()) {
+            Toast.makeText(context, "कृपया संपत्ति की फोटो अपलोड करें", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        viewModelScope.launch {
+            _kycRes.value = Result.Loading
+            try {
+                val req = PropertyKycReq(
+                    uniqueId = registeredUniqueId,
+                    image = propertyImage?.base64 ?: ""
+                )
+                val response = repository.propertyKyc(req)
+                _kycRes.value = if (response.isSuccessful && response.body() != null) {
+                    Result.Success(response.body()!!)
+                } else {
+                    Result.Error(response.code(), response.errorBody()?.string() ?: "Unknown error")
+                }
+            } catch (e: Exception) {
+                _kycRes.value = Result.Error(errorMessage = e.message ?: "Unexpected error")
+            }
+        }
+        return true
+    }
+
+    fun resetRegistrationState() {
+        _propertyRes.value = Result.Idle
+        _kycRes.value = Result.Idle
+        registeredUniqueId = ""
+        wardId = null
+        selectedWard.value = null
+        constructionTypeId = null
+        pconstructionTypeId = null
+        selectedConstructionType.value = null
+        selectedpConstructionType.value = null
+        selectedRoadWide.value = null
+        nonGovId = null
+        selectedNonGov.value = null
+        govId = null
+        selectedGov.value = null
+        mohallaId = null
+        selectedMohalla.value = null
+        sequence = null
+        sequenceNo = TextFieldValue("")
+        propertyNo = TextFieldValue("")
+        ownerPropertyName = TextFieldValue("")
+        fatherHusbandOwner = TextFieldValue("")
+        contactNumber = TextFieldValue("")
+        address = TextFieldValue("")
+        residential = TextFieldValue("")
+        commercial = TextFieldValue("")
+        emptyArea = TextFieldValue("")
+        totalArea = TextFieldValue("")
+        propertyImage = null
+        property = null
+        propertyPos = null
+        bhukhandPlat = null
+        talabPokharaEtc = null
+        propertyType = null
+        propertyTypePos = null
+        govNonGov = null
+        govNonGovPos = null
+        relation = null
+        gender = null
+        religion = null
+        roadWide = null
+        floorNo = null
+
+        // Clear errors
+        sequenceNoError = null
+        propertyNoError = null
+        ownerPropertyNameError = null
+        fatherHusbandOwnerError = null
+        contactNumberError = null
+        addressError = null
+        residentialError = null
+        commercialError = null
+        emptyAreaError = null
+        totalAreaError = null
+        propertyImageError = null
+        propertyError = null
+        bhukhandPlatError = null
+        talabPokharaEtcError = null
+        propertyTypeError = null
+        govNonGovError = null
+        relationError = null
+        genderError = null
+        religionError = null
+        roadWideError = null
+        floorNoError = null
+        wardError = null
+        mohallaError = null
+        govError = null
+        nonGovError = null
+        constructionTypeError = null
+        pconstructionTypeError = null
+    }
+
+    private fun getDeviceIpAddress(): String {
+        try {
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val intf = interfaces.nextElement()
+                val addrs = intf.inetAddresses
+                while (addrs.hasMoreElements()) {
+                    val addr = addrs.nextElement()
+                    if (!addr.isLoopbackAddress && addr is java.net.Inet4Address) {
+                        return addr.hostAddress ?: "127.0.0.1"
+                    }
+                }
+            }
+        } catch (ignored: Exception) {
+        }
+        return "127.0.0.1"
     }
 }

@@ -10,61 +10,44 @@ data class PropertyReq(
     val wardNo: String,
     @SerializedName("MohallaName")
     val mohallaName: String,
-    @SerializedName("Sequence")
-    val sequence: String,
-    @SerializedName("Property")
-    val `property`: String,
-    @SerializedName("BhukhandPlotType")
-    val bhukhandPlotType: String,
-    @SerializedName("TotalArea")
-    val totalArea: String,
-    @SerializedName("EmptyArea")
-    val emptyArea: String,
-    @SerializedName("Residential")
-    val residential: String,
-    @SerializedName("Commercial")
-    val commercial: String,
-    @SerializedName("Nahar_Talab")
-    val naharTalab: String,
-    @SerializedName("PropertyType")
-    val propertyType: String,
-    @SerializedName("Gov_NonGov")
-    val govNonGov: String,
-    @SerializedName("GovProperty")
-    val govProperty: String,
-    @SerializedName("NonGovProperty")
-    val nonGovProperty: String,
-    @SerializedName("FloorNo")
-    val floorNo: String,
-    @SerializedName("ConstructionType")
-    val constructionType: String,
-    @SerializedName("ConstructionYear")
-    val constructionYear: String,
-    @SerializedName("PropertyNo")
-    val propertyNo: String,
     @SerializedName("OwnerName")
     val ownerName: String,
     @SerializedName("FatherHusbandName")
     val fatherHusbandName: String,
     @SerializedName("Relation")
     val relation: String,
-    @SerializedName("Gender")
-    val gender: String,
-    @SerializedName("Religious")
-    val religious: String,
+    @SerializedName("Sequence")
+    val sequence: String,
     @SerializedName("MobileNo")
     val mobileNo: String,
-    @SerializedName("Address")
-    val address: String,
     @SerializedName("RodeWide")
     val rodeWide: String,
-    @SerializedName("DeviceName")
-    val deviceName: String,
-    @SerializedName("PrimaryConstructionType")
-    val primaryConstructionType: String,
+    @SerializedName("Property")
+    val `property`: String,
+    @SerializedName("PropertyType")
+    val propertyType: String,
+    @SerializedName("SubPropertyType")
+    val subPropertyType: String,
+    @SerializedName("GovNonGov")
+    val govNonGov: String,
+    @SerializedName("Residential")
+    val residential: String,
+    @SerializedName("Commercial")
+    val commercial: String,
+    @SerializedName("TotalArea")
+    val totalArea: String,
+    @SerializedName("FloorNo")
+    val floorNo: String,
+    @SerializedName("EmptyArea")
+    val emptyArea: String,
+    @SerializedName("ConstructionType")
+    val constructionType: String,
+    @SerializedName("Address")
+    val address: String,
+    @SerializedName("IpAddress")
+    val ipAddress: String,
+    @SerializedName("UserId")
+    val userId: String,
     @SerializedName("Image")
     val image: String
-
-
-
 )

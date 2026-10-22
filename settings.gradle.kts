@@ -20,4 +20,3 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Assign GIS Survey"
 include(":app")
-5

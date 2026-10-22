@@ -25,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.AnnotatedString
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,17 +35,31 @@ import androidx.compose.ui.unit.sp
 fun <T> DropdownMenu(
     title: String,
     label: String,
-    items: List<T>,
+    items: List<T>?,
     selectedItem: T?,
     onItemSelected: (Int, T) -> Unit,
     displayText: (T) -> String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    isItemEnabled: (T) -> Boolean = { true },
     error: String? = null
 ) {
+    val safeItems = items ?: emptyList()
+    val annotatedTitle = remember(title) {
+        buildAnnotatedString {
+            val trimmed = title.trimEnd()
+            if (trimmed.endsWith("*")) {
+                append(trimmed.substringBeforeLast("*").trimEnd())
+                append(" ")
+                append(AnnotatedString("*", SpanStyle(color = Color.Red)))
+            } else {
+                append(title)
+            }
+        }
+    }
     Column(modifier = modifier) {
         Text(
-            text = title,
+            text = annotatedTitle,
             style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(bottom = 4.dp)
         )
@@ -71,12 +88,20 @@ fun <T> DropdownMenu(
             onDismissRequest = { expanded = false },
             modifier = Modifier.fillMaxWidth()
         ) {
-            items.forEachIndexed { index, item ->
+            safeItems.forEachIndexed { index, item ->
+                val itemEnabled = isItemEnabled(item)
                 DropdownMenuItem(
-                    text = { Text(displayText(item)) },
+                    text = {
+                        Text(
+                            displayText(item),
+                            color = if (itemEnabled) Color.Unspecified else Color.Gray
+                        )
+                    },
                     onClick = {
-                        onItemSelected(index, item)
-                        expanded = false
+                        if (itemEnabled) {
+                            onItemSelected(index, item)
+                            expanded = false
+                        }
                     }
                 )
             }
@@ -97,7 +122,7 @@ object Dropdown {
     fun <T> ExposedDropdown(
         title: String,
         label: String = "Select Item",
-        items: List<T>,
+        items: List<T>?,
         selectedItem: T?,
         onItemSelected: (Int, T) -> Unit,
         displayText: (T) -> String = { it.toString() },
@@ -107,9 +132,9 @@ object Dropdown {
     fun <T> selectByValue(
         current: T?,
         newValue: T,
-        items: List<T>,
+        items: List<T>?,
         onItemSelected: (Int, T) -> Unit
-    ): T? = items.indexOf(newValue).takeIf { it >= 0 }?.let { index ->
+    ): T? = (items ?: emptyList()).indexOf(newValue).takeIf { it >= 0 }?.let { index ->
         onItemSelected(index, newValue)
         newValue
     } ?: current
@@ -117,7 +142,7 @@ object Dropdown {
     fun <T> selectByIndex(
         current: T?,
         index: Int,
-        items: List<T>,
+        items: List<T>?,
         onItemSelected: (Int, T) -> Unit
-    ): T? = items.getOrNull(index)?.also { onItemSelected(index, it) } ?: current
+    ): T? = (items ?: emptyList()).getOrNull(index)?.also { onItemSelected(index, it) } ?: current
 }

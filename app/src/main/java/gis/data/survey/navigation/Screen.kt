@@ -35,6 +35,9 @@ sealed class Screen(val route: String) {
 
     @Serializable
     object PropertyRegistrationPreview : Screen("propertyRegistrationPreview")
+
+    @Serializable
+    object PropertyPhotoUpload : Screen("propertyPhotoUpload")
     @Serializable
     object MobileLogin : Screen("mobile_login")
     @Serializable

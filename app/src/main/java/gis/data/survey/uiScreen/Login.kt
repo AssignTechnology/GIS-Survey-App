@@ -76,6 +76,7 @@ fun Login(rememberNavController: NavHostController, viewModel: LoginViewModel = 
                 val data = (loginState as Result.Success<LoginModel>).data
                 if (data.nP.responseMessage=="Admin Login Successful"){
                     SharedPreferencesManager.getInstance(context).setValue("loginState",data.nP.responseMessage)
+                    SharedPreferencesManager.getInstance(context).setValue("UserId", viewModel.username)
                     rememberNavController.navigate(Screen.Main.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }

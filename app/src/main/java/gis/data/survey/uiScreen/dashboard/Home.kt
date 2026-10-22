@@ -114,9 +114,7 @@ fun Home(navController: NavHostController) {
                 items = gridItemsForRegistration,
                 onItemClick = { item ->
                     item.route?.let { route ->
-                        navController.navigate(route.route) {
-                            popUpTo(Screen.Home.route) { inclusive = true }
-                        }
+                        navController.navigate(route.route)
                     }
                 }
             )

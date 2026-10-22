@@ -19,6 +19,7 @@ import gis.data.survey.uiScreen.OtpLogin
 import gis.data.survey.uiScreen.OtpScreen
 import gis.data.survey.uiScreen.PropertyRegistration
 import gis.data.survey.uiScreen.PropertyRegistrationPreviewScreen
+import gis.data.survey.uiScreen.PropertyPhotoUpload
 import gis.data.survey.uiScreen.Splash
 import gis.data.survey.uiScreen.PropertyReport
 import gis.data.survey.uiScreen.drawer.About
@@ -110,6 +111,7 @@ fun AppNavigation(setOnOtpReceived: ((String) -> Unit) -> Unit) {
         composable(Screen.Login.route) { Login(navController) }
         composable(Screen.Main.route) { Main(navController) }
         composable(Screen.PropertyRegistration.route) { PropertyRegistration(navController) }
+        composable(Screen.PropertyPhotoUpload.route) { PropertyPhotoUpload(navController) }
         composable(Screen.PropertyReport.route) { PropertyReport(navController) }
         composable(Screen.Settings.route) { Settings(navController) }
         composable(Screen.About.route) { About(navController) }

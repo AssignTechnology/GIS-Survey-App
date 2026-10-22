@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import gis.data.survey.model.responseModel.ConstructionTypeRes
 import androidx.navigation.NavHostController
 import gis.data.survey.component.AppTopBar
 import gis.data.survey.component.CircularProgress
@@ -86,9 +88,6 @@ fun PropertyScreen(
     navController: NavHostController
 ) {
     val context = LocalContext.current
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-    var showImagePicker by remember { mutableStateOf(false) }
-    var showCameraPreview by remember { mutableStateOf(false) }
     var currentAddress by remember { mutableStateOf<String?>(null) }
 
     val propertyRes by viewModel.propertyRes.collectAsState()
@@ -113,7 +112,8 @@ fun PropertyScreen(
 
     LaunchedEffect(Unit) {
         viewModel.fetchWards()
-
+        viewModel.fetchPropertyTypes()
+        viewModel.fetchFloorNos()
         viewModel.fetchPConstructionTypes()
         viewModel.fetchGovProperties()
         viewModel.fetchNonGovProperties()
@@ -160,7 +160,6 @@ fun PropertyScreen(
                             error = viewModel.wardError
                         )
                     }
-                    is Result.Error -> Text("Error: ${wardState.errorMessage}", color = Color.Red)
                     else -> {}
                 }
 
@@ -208,10 +207,6 @@ fun PropertyScreen(
 //                            error = viewModel.mohallaError
 //                        )
 //                    }
-                    is Result.Error -> Text(
-                        "Error: ${mohallaState.errorMessage}",
-                        color = Color.Red
-                    )
                     else -> {}
                 }
                 // Sequence
@@ -243,49 +238,147 @@ fun PropertyScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
 
-                // Property Selection
-                DropdownMenu(
-                    title = "संम्पत्ति",
-                    label = "संम्पत्ति चुनें",
-                    items = listOf("भूखण्ड/प्लाट", "तालाब/पोखरा/कुआँ/नहर/इत्यादि", "संम्पत्ति"),
-                    selectedItem = viewModel.property,
-                    onItemSelected = { pos, item ->
-                        viewModel.updateProperty(item, pos)
-                    },
-                    displayText = { it },
-                    modifier = Modifier.fillMaxWidth(),
-                    error = viewModel.propertyError
-                )
-
-                // Conditional fields based on property
-                when (viewModel.propertyPos) {
-                    0 -> { // भूखण्ड/प्लाट
+                // Property Type Dropdown (Fetched from API - at the top)
+                val propertyTypeState = viewModel.propertyTypeState.collectAsState().value
+                when (propertyTypeState) {
+                    is Result.Loading -> CircularProgress()
+                    is Result.Success -> {
                         DropdownMenu(
-                            title = "भूखण्ड/प्लाट",
-                            label = "भूखण्ड/प्लाट चुनें",
-                            items = listOf("भूखण्ड/प्लाट"), // Replace with actual options
-                            selectedItem = viewModel.bhukhandPlat,
-                            onItemSelected = { _, item -> viewModel.updateBhukhandPlat(item) },
-                            displayText = { it },
+                            title = "संम्पत्ति के प्रकार *",
+                            label = "संम्पत्ति के प्रकार चुनें",
+                            items = propertyTypeState.data.nP.responseData,
+                            selectedItem = viewModel.selectedPropertyType.value,
+                            onItemSelected = { _, item ->
+                                viewModel.selectPropertyType(item)
+                            },
+                            displayText = { it.propertyType },
                             modifier = Modifier.fillMaxWidth(),
-                            error = viewModel.bhukhandPlatError
+                            error = viewModel.propertyTypeError
                         )
-//                        TitledTextField(
-//                            title = "आवासीय क्षेत्रफल",
-//                            value = viewModel.residential,
-//                            onValueChange = viewModel::updateResidential,
-//                            placeholder = "आवासीय क्षेत्रफल दर्ज करें",
-//                            error = viewModel.residentialError,
-//                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-//                        )
-//                        TitledTextField(
-//                            title = "व्यावसायिक क्षेत्रफल",
-//                            value = viewModel.commercial,
-//                            onValueChange = viewModel::updateCommercial,
-//                            placeholder = "व्यावसायिक क्षेत्रफल दर्ज करें",
-//                            error = viewModel.commercialError,
-//                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-//                        )
+                    }
+                    else -> {}
+                }
+
+                // Property Dropdown (Fetched via BindPropertyType using RCMPropertyId)
+                val bindPropertyState = viewModel.bindPropertyTypeState.collectAsState().value
+                when (bindPropertyState) {
+                    is Result.Loading -> CircularProgress()
+                    is Result.Success -> {
+                        val propertyList = bindPropertyState.data.nP.responseData
+
+                        // 👇 Auto-select first property if not already selected
+                        LaunchedEffect(propertyList) {
+                            if (propertyList.isNotEmpty() && viewModel.selectedBoundProperty.value == null) {
+                                val firstProperty = propertyList[0]
+                                viewModel.selectedBoundProperty.value = firstProperty
+                            }
+                        }
+
+                        DropdownMenu(
+                            title = "संम्पत्ति",
+                            label = "संम्पत्ति चुनें",
+                            items = propertyList,
+                            selectedItem = viewModel.selectedBoundProperty.value,
+                            onItemSelected = { _, item ->
+                                viewModel.selectedBoundProperty.value = item
+                            },
+                            displayText = { it.displayName },
+                            modifier = Modifier.fillMaxWidth(),
+                            error = viewModel.propertyError,
+                            enabled = false
+                        )
+                    }
+                    else -> {}
+                }
+
+                // Sub-Property Type Dropdown (Visible ONLY when selectedPropertyType.value?.typeId == 1, e.g. Bank & ATM)
+                if (viewModel.selectedPropertyType.value?.typeId == 1) {
+                    val subPropState = viewModel.subPropertyState.collectAsState().value
+                    when (subPropState) {
+                        is Result.Success -> {
+                            val subList = subPropState.data.nP.responseData
+                            if (subList.isNotEmpty()) {
+                                DropdownMenu(
+                                    title = "उप-संपत्ति (Sub-Property Type)",
+                                    label = "उप-संपत्ति चुनें",
+                                    items = subList,
+                                    selectedItem = viewModel.selectedSubProperty.value,
+                                    onItemSelected = { _, item ->
+                                        viewModel.updateSubProperty(item)
+                                    },
+                                    displayText = { it.subPropertyType },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                        is Result.Loading -> CircularProgress()
+                        else -> {
+                            LaunchedEffect(viewModel.selectedPropertyType.value?.id) {
+                                viewModel.fetchSubPropertyTypes(viewModel.selectedPropertyType.value?.id.toString())
+                            }
+                        }
+                    }
+                }
+
+                // Conditional fields based on propertyTypePos
+                when (viewModel.propertyTypePos) {
+                    0 -> { // आवासीय
+                        TitledTextField(
+                            title = "आवासीय क्षेत्रफल",
+                            value = viewModel.residential,
+                            onValueChange = viewModel::updateResidential,
+                            placeholder = "आवासीय क्षेत्रफल दर्ज करें",
+                            error = viewModel.residentialError,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        TitledTextField(
+                            title = "खाली क्षेत्रफल",
+                            value = viewModel.emptyArea,
+                            onValueChange = viewModel::updateEmptyArea,
+                            placeholder = "खाली क्षेत्रफल दर्ज करें",
+                            error = viewModel.emptyAreaError,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        TitledTextField(
+                            title = "सम्पूर्ण क्षेत्रफल",
+                            value = viewModel.totalArea,
+                            onValueChange = viewModel::updateTotalArea,
+                            placeholder = "सम्पूर्ण क्षेत्रफल दर्ज करें",
+                            error = viewModel.totalAreaError,
+                            readOnly = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
+
+                    1 -> { // व्यवसायिक
+                        TitledTextField(
+                            title = "व्यावसायिक क्षेत्रफल",
+                            value = viewModel.commercial,
+                            onValueChange = viewModel::updateCommercial,
+                            placeholder = "व्यावसायिक क्षेत्रफल दर्ज करें",
+                            error = viewModel.commercialError,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        TitledTextField(
+                            title = "खाली क्षेत्रफल",
+                            value = viewModel.emptyArea,
+                            onValueChange = viewModel::updateEmptyArea,
+                            placeholder = "खाली क्षेत्रफल दर्ज करें",
+                            error = viewModel.emptyAreaError,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        TitledTextField(
+                            title = "सम्पूर्ण क्षेत्रफल",
+                            value = viewModel.totalArea,
+                            onValueChange = viewModel::updateTotalArea,
+                            placeholder = "सम्पूर्ण क्षेत्रफल दर्ज करें",
+                            error = viewModel.totalAreaError,
+                            readOnly = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
+
+                    2 -> { // भूखंड/प्लाट
                         TitledTextField(
                             title = "खाली क्षेत्रफल",
                             value = viewModel.emptyArea,
@@ -305,276 +398,198 @@ fun PropertyScreen(
                         )
                     }
 
-                    1 -> { // तालाब/पोखरा/etc
-                        DropdownMenu(
-                            title = "तालाब/पोखरा/कुआँ/नहर/इत्यादि",
-                            label = "चुनें",
-                            items = listOf(
-                                "तालाब",
-                                "पोखरा",
-                                "कुआँ",
-                                "नहर",
-                                "इत्यादि"
-                            ), // Replace if needed
-                            selectedItem = viewModel.talabPokharaEtc,
-                            onItemSelected = { _, item -> viewModel.updateTalabPokharaEtc(item) },
-                            displayText = { it },
-                            modifier = Modifier.fillMaxWidth(),
-                            error = viewModel.talabPokharaEtcError
-                        )
-                    }
-
-                    2 -> { // संम्पत्ति
-                        DropdownMenu(
-                            title = "संम्पत्ति के प्रकार",
-                            label = "संम्पत्ति के प्रकार चुनें",
-                            items = listOf("आवासीय", "व्यवसायिक", "मिश्रित"),
-                            selectedItem = viewModel.propertyType,
-                            onItemSelected = { pos, item ->
-                                viewModel.updatePropertyType(item, pos)
-                            },
-                            displayText = { it },
-                            modifier = Modifier.fillMaxWidth(),
-                            error = viewModel.propertyTypeError
-                        )
-
-                        // Conditional based on propertyType
-                        when (viewModel.propertyTypePos) {
-                            0 -> { // आवासीय
-                                TitledTextField(
-                                    title = "आवासीय क्षेत्रफल",
-                                    value = viewModel.residential,
-                                    onValueChange = viewModel::updateResidential,
-                                    placeholder = "आवासीय क्षेत्रफल दर्ज करें",
-                                    error = viewModel.residentialError,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                )
-                                TitledTextField(
-                                    title = "खाली क्षेत्रफल",
-                                    value = viewModel.emptyArea,
-                                    onValueChange = viewModel::updateEmptyArea,
-                                    placeholder = "खाली क्षेत्रफल दर्ज करें",
-                                    error = viewModel.emptyAreaError,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                )
-                                TitledTextField(
-                                    title = "सम्पूर्ण क्षेत्रफल",
-                                    value = viewModel.totalArea,
-                                    onValueChange = viewModel::updateTotalArea,
-                                    placeholder = "सम्पूर्ण क्षेत्रफल दर्ज करें",
-                                    error = viewModel.totalAreaError,
-                                    readOnly = true,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                )
-                            }
-
-                            1 -> { // व्यवसायिक
-                                TitledTextField(
-                                    title = "व्यावसायिक क्षेत्रफल",
-                                    value = viewModel.commercial,
-                                    onValueChange = viewModel::updateCommercial,
-                                    placeholder = "व्यावसायिक क्षेत्रफल दर्ज करें",
-                                    error = viewModel.commercialError,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                )
-                                TitledTextField(
-                                    title = "खाली क्षेत्रफल",
-                                    value = viewModel.emptyArea,
-                                    onValueChange = viewModel::updateEmptyArea,
-                                    placeholder = "खाली क्षेत्रफल दर्ज करें",
-                                    error = viewModel.emptyAreaError,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                )
-                                TitledTextField(
-                                    title = "सम्पूर्ण क्षेत्रफल",
-                                    value = viewModel.totalArea,
-                                    onValueChange = viewModel::updateTotalArea,
-                                    placeholder = "सम्पूर्ण क्षेत्रफल दर्ज करें",
-                                    error = viewModel.totalAreaError,
-                                    readOnly = true,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                )
-                            }
-
-                            2 -> { // मिश्रित
-                                TitledTextField(
-                                    title = "आवासीय क्षेत्रफल",
-                                    value = viewModel.residential,
-                                    onValueChange = viewModel::updateResidential,
-                                    placeholder = "आवासीय क्षेत्रफल दर्ज करें",
-                                    error = viewModel.residentialError,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                )
-                                TitledTextField(
-                                    title = "व्यावसायिक क्षेत्रफल",
-                                    value = viewModel.commercial,
-                                    onValueChange = viewModel::updateCommercial,
-                                    placeholder = "व्यावसायिक क्षेत्रफल दर्ज करें",
-                                    error = viewModel.commercialError,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                )
-                                TitledTextField(
-                                    title = "खाली क्षेत्रफल",
-                                    value = viewModel.emptyArea,
-                                    onValueChange = viewModel::updateEmptyArea,
-                                    placeholder = "खाली क्षेत्रफल दर्ज करें",
-                                    error = viewModel.emptyAreaError,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                )
-                                TitledTextField(
-                                    title = "सम्पूर्ण क्षेत्रफल",
-                                    value = viewModel.totalArea,
-                                    onValueChange = viewModel::updateTotalArea,
-                                    placeholder = "सम्पूर्ण क्षेत्रफल दर्ज करें",
-                                    error = viewModel.totalAreaError,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    readOnly = true
-                                )
-                            }
-                        }
-
-                        DropdownMenu(
-                            title = "सरकारी/गैर सरकारी",
-                            label = "सरकारी/गैर सरकारी चुनें",
-                            items = listOf("सरकारी", "गैर सरकारी"),
-                            selectedItem = viewModel.govNonGov,
-                            onItemSelected = { pos, item ->
-                                viewModel.updateGovNonGov(item, pos)
-                            },
-                            displayText = { it },
-                            modifier = Modifier.fillMaxWidth(),
-                            error = viewModel.govNonGovError
-                        )
-
-                        // Conditional based on govNonGov
-                        when (viewModel.govNonGovPos) {
-                            0 -> { // सरकारी
-                                val govState = viewModel.gov.collectAsState().value
-                                when (govState) {
-                                    is Result.Loading -> CircularProgress()
-                                    is Result.Success -> {
-                                        DropdownMenu(
-                                            title = "सरकारी संम्पत्ति",
-                                            label = "सरकारी संम्पत्ति चुनें",
-                                            items = govState.data.nP.responseData,
-                                            selectedItem = viewModel.selectedGov.value,
-                                            onItemSelected = { _, item ->
-                                                viewModel.updateGovId(item.id.toString())
-                                                viewModel.selectedGov.value = item
-                                            },
-                                            displayText = { it.govProperty },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            error = viewModel.govError
-                                        )
-                                    }
-
-                                    else -> {}
-                                }
-                            }
-
-                            1 -> { // गैर सरकारी
-                                val nonGovState = viewModel.nonGov.collectAsState().value
-                                when (nonGovState) {
-                                    is Result.Loading -> CircularProgress()
-                                    is Result.Success -> {
-                                        DropdownMenu(
-                                            title = "गैर सरकारी संम्पत्ति",
-                                            label = "गैर सरकारी संम्पत्ति चुनें",
-                                            items = nonGovState.data.nP.responseData,
-                                            selectedItem = viewModel.selectedNonGov.value,
-                                            onItemSelected = { _, item ->
-                                                viewModel.updateNonGovId(item.id.toString())
-                                                viewModel.selectedNonGov.value = item
-                                            },
-                                            displayText = { it.privateProperty },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            error = viewModel.nonGovError
-                                        )
-                                    }
-
-                                    else -> {}
-                                }
-                            }
-                        }
-
-                        DropdownMenu(
-                            title = "फ्लोर नं",
-                            label = "फ्लोर नं चुनें",
-                            items = listOf(
-                                "1 तल",
-                                "2 तल",
-                                "3 तल",
-                                "4 तल",
-                                "4 से अधिक तल"
-                            ), // Example
-                            selectedItem = viewModel.floorNo,
-                            onItemSelected = { _, item -> viewModel.updateFloorNo(item) },
-                            displayText = { it },
-                            modifier = Modifier.fillMaxWidth(),
-                            error = viewModel.floorNoError
-                        )
-                        val pconstructionTypeState =
-                            viewModel.pconstructionType.collectAsState().value
-                        when (pconstructionTypeState) {
-                            is Result.Loading -> CircularProgress()
-                            is Result.Success -> {
-                                DropdownMenu(
-                                    title = "निर्माण के प्रकार",
-                                    label = "निर्माण के प्रकार चुनें",
-                                    items = pconstructionTypeState.data.nP.responseData,
-                                    selectedItem = viewModel.selectedpConstructionType.value,
-                                    onItemSelected = { _, item ->
-                                        viewModel.updatepConstructionTypeId(item.id)
-                                        viewModel.selectedpConstructionType.value = item
-                                        viewModel.updateConstructionTypeId("")
-                                        viewModel.fetchConstructionTypes(item.id)
-                                    },
-                                    displayText = { it.name },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    error = viewModel.pconstructionTypeError
-                                )
-                            }
-
-                            else -> {}
-                        }
-
-
-                        val constructionTypeState =
-                            viewModel.constructionType.collectAsState().value
-                        when (constructionTypeState) {
-                            is Result.Loading -> CircularProgress()
-                            is Result.Success -> {
-                                DropdownMenu(
-                                    title = "उपनिर्माण के प्रकार",
-                                    label = "उपनिर्माण के प्रकार चुनें",
-                                    items = constructionTypeState.data.nP.responseData,
-                                    selectedItem = viewModel.selectedConstructionType.value,
-                                    onItemSelected = { _, item ->
-                                        viewModel.updateConstructionTypeId(item.id)
-                                        viewModel.selectedConstructionType.value = item
-                                    },
-                                    displayText = { it.name },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    error = viewModel.constructionTypeError
-                                )
-                            }
-
-                            else -> {}
-                        }
-
+                    3 -> { // मिश्रित
                         TitledTextField(
-                            title = "निर्माण वर्ष",
-                            value = viewModel.constructionYear,
-                            onValueChange = viewModel::updateConstructionYear,
-                            placeholder = "निर्माण वर्ष दर्ज करें",
-                            error = viewModel.constructionYearError,
+                            title = "आवासीय क्षेत्रफल",
+                            value = viewModel.residential,
+                            onValueChange = viewModel::updateResidential,
+                            placeholder = "आवासीय क्षेत्रफल दर्ज करें",
+                            error = viewModel.residentialError,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        TitledTextField(
+                            title = "व्यावसायिक क्षेत्रफल",
+                            value = viewModel.commercial,
+                            onValueChange = viewModel::updateCommercial,
+                            placeholder = "व्यावसायिक क्षेत्रफल दर्ज करें",
+                            error = viewModel.commercialError,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        TitledTextField(
+                            title = "खाली क्षेत्रफल",
+                            value = viewModel.emptyArea,
+                            onValueChange = viewModel::updateEmptyArea,
+                            placeholder = "खाली क्षेत्रफल दर्ज करें",
+                            error = viewModel.emptyAreaError,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        TitledTextField(
+                            title = "सम्पूर्ण क्षेत्रफल",
+                            value = viewModel.totalArea,
+                            onValueChange = viewModel::updateTotalArea,
+                            placeholder = "सम्पूर्ण क्षेत्रफल दर्ज करें",
+                            error = viewModel.totalAreaError,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            readOnly = true
                         )
                     }
                 }
 
+                // Gov/Non-Gov Dropdown (Visible ONLY when selectedPropertyType.value?.govPri == 1)
+                if (viewModel.selectedPropertyType.value?.govPri == 1) {
+                    DropdownMenu(
+                        title = "सरकारी/गैर सरकारी",
+                        label = "सरकारी/गैर सरकारी चुनें",
+                        items = listOf("सरकारी", "गैर सरकारी"),
+                        selectedItem = viewModel.govNonGov,
+                        onItemSelected = { pos, item ->
+                            viewModel.updateGovNonGov(item, pos)
+                        },
+                        displayText = { it },
+                        modifier = Modifier.fillMaxWidth(),
+                        error = viewModel.govNonGovError
+                    )
+
+                    // Conditional based on govNonGov
+                    when (viewModel.govNonGovPos) {
+                        0 -> { // सरकारी
+                            val govState = viewModel.gov.collectAsState().value
+                            when (govState) {
+                                is Result.Loading -> CircularProgress()
+                                is Result.Success -> {
+                                    DropdownMenu(
+                                        title = "सरकारी संम्पत्ति",
+                                        label = "सरकारी संम्पत्ति चुनें",
+                                        items = govState.data.nP.responseData,
+                                        selectedItem = viewModel.selectedGov.value,
+                                        onItemSelected = { _, item ->
+                                            viewModel.updateGovId(item.id.toString())
+                                            viewModel.selectedGov.value = item
+                                        },
+                                        displayText = { it.govProperty },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        error = viewModel.govError
+                                    )
+                                }
+
+                                else -> {}
+                            }
+                        }
+
+                        1 -> { // गैर सरकारी
+                            val nonGovState = viewModel.nonGov.collectAsState().value
+                            when (nonGovState) {
+                                is Result.Loading -> CircularProgress()
+                                is Result.Success -> {
+                                    DropdownMenu(
+                                        title = "गैर सरकारी संम्पत्ति",
+                                        label = "गैर सरकारी संम्पत्ति चुनें",
+                                        items = nonGovState.data.nP.responseData,
+                                        selectedItem = viewModel.selectedNonGov.value,
+                                        onItemSelected = { _, item ->
+                                            viewModel.selectNonGovProperty(item)
+                                        },
+                                        displayText = { it.privateProperty },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        error = viewModel.nonGovError
+                                    )
+                                }
+
+                                else -> {}
+                            }
+                        }
+                    }
+                }
+
+                // Floor Number Dropdown (Visible ONLY when propertyTypePos == 0 -> आवासीय)
+                if (viewModel.propertyTypePos == 0) {
+                    val floorState = viewModel.floorState.collectAsState().value
+                    when (floorState) {
+                        is Result.Success -> {
+                            DropdownMenu(
+                                title = "फ्लोर नं",
+                                label = "फ्लोर नं चुनें",
+                                items = floorState.data.nP.responseData,
+                                selectedItem = viewModel.selectedFloor.value,
+                                onItemSelected = { _, item ->
+                                    viewModel.updateFloor(item)
+                                },
+                                displayText = { it.floorNo },
+                                modifier = Modifier.fillMaxWidth(),
+                                error = viewModel.floorNoError
+                            )
+                        }
+                        is Result.Loading -> CircularProgress()
+                        else -> {
+                            LaunchedEffect(Unit) {
+                                viewModel.fetchFloorNos()
+                            }
+                            CircularProgress()
+                        }
+                    }
+                }
+                val pconstructionTypeState =
+                    viewModel.pconstructionType.collectAsState().value
+                val cTypeId = viewModel.selectedPropertyType.value?.cTypeId ?: 0
+
+                val defaultPConstList = listOf<ConstructionTypeRes.NP.ResponseData>(
+                    ConstructionTypeRes.NP.ResponseData("1", "भूमि/प्लाט"),
+                    ConstructionTypeRes.NP.ResponseData("2", "पक्का"),
+                    ConstructionTypeRes.NP.ResponseData("3", "कच्चा + पक्का"),
+                    ConstructionTypeRes.NP.ResponseData("4", "कच्चा")
+                )
+                val pConstItems = (pconstructionTypeState as? Result.Success)?.data?.nP?.responseData ?: defaultPConstList
+
+                DropdownMenu(
+                    title = "निर्माण के प्रकार *",
+                    label = "निर्माण के प्रकार चुनें",
+                    items = pConstItems,
+                    selectedItem = viewModel.selectedpConstructionType.value,
+                    onItemSelected = { _, item ->
+                        viewModel.updatepConstructionTypeId(item.id)
+                        viewModel.selectedpConstructionType.value = item
+                        viewModel.updateConstructionTypeId("")
+                        viewModel.fetchConstructionTypes(item.id)
+                    },
+                    displayText = { it.name },
+                    modifier = Modifier.fillMaxWidth(),
+                    isItemEnabled = { item ->
+                        if (cTypeId == 0) {
+                            item.id != "1" // Disable plot (id 1) when CTypeId is 0
+                        } else {
+                            item.id == "1" // Enable only plot (id 1) when CTypeId is 1
+                        }
+                    },
+                    error = viewModel.pconstructionTypeError
+                )
+
+                val constructionTypeState =
+                    viewModel.constructionType.collectAsState().value
+                when (constructionTypeState) {
+                    is Result.Loading -> CircularProgress()
+                    is Result.Success -> {
+                        DropdownMenu(
+                            title = "उपनिर्माण के प्रकार",
+                            label = "उपनिर्माण के प्रकार चुनें",
+                            items = constructionTypeState.data.nP.responseData,
+                            selectedItem = viewModel.selectedConstructionType.value,
+                            onItemSelected = { _, item ->
+                                viewModel.updateConstructionTypeId(item.id)
+                                viewModel.selectedConstructionType.value = item
+                            },
+                            displayText = { it.name },
+                            modifier = Modifier.fillMaxWidth(),
+                            error = viewModel.constructionTypeError
+                        )
+                    }
+
+                    else -> {}
+                }
+
+
+
                 TitledTextField(
-                    title = "संम्पत्ति संख्या",
+                    title = "संम्पत्ति/मकान संख्या",
                     value = viewModel.propertyNo,
                     onValueChange = viewModel::updatePropertyNo,
                     placeholder = "संम्पत्ति संख्या दर्ज करें",
@@ -609,27 +624,7 @@ fun PropertyScreen(
                     error = viewModel.fatherHusbandOwnerError
                 )
 
-                DropdownMenu(
-                    title = "लिंग",
-                    label = "लिंग चुनें",
-                    items = listOf("पुरुष", "महिला", "अन्य"),
-                    selectedItem = viewModel.gender,
-                    onItemSelected = { _, item -> viewModel.updateGender(item) },
-                    displayText = { it },
-                    modifier = Modifier.fillMaxWidth(),
-                    error = viewModel.genderError
-                )
 
-                DropdownMenu(
-                    title = "धर्म",
-                    label = "धर्म चुनें",
-                    items = listOf("हिन्दू", "मुस्लिम", "सिख", "इसाई", "अन्य"),
-                    selectedItem = viewModel.religion,
-                    onItemSelected = { _, item -> viewModel.updateReligion(item) },
-                    displayText = { it },
-                    modifier = Modifier.fillMaxWidth(),
-                    error = viewModel.religionError
-                )
 
                 TitledTextField(
                     title = "मोबाइल नं",
@@ -685,21 +680,26 @@ fun PropertyScreen(
                     is Result.Loading -> CircularProgress()
                     is Result.Success -> {
                         DropdownMenu(
-                            title = "रोड की चौड़ाई",
+                            title = "रोड की चौड़ाई *",
                             label = "रोड की चौड़ाई चुनें",
                             items = roadWideState.data.nP.responseData,
                             selectedItem = viewModel.selectedRoadWide.value,
                             onItemSelected = { _, item ->
-                                viewModel.updateRoadWide(item.id)
+                                viewModel.updateRoadWide(item.roadWide)
                                 viewModel.selectedRoadWide.value = item
                             },
-                            displayText = { it.name },
+                            displayText = { it.roadWide },
                             modifier = Modifier.fillMaxWidth(),
                             error = viewModel.roadWideError
                         )
                     }
-
-                    else -> {}
+                    is Result.Error -> {}
+                    else -> {
+                        LaunchedEffect(Unit) {
+                            viewModel.fetchRoadWide()
+                        }
+                        CircularProgress()
+                    }
                 }
 //
 //                DropdownMenu(
@@ -713,97 +713,57 @@ fun PropertyScreen(
 //                    error = viewModel.roadWideError
 //                )
 
-                // Image Picker
-                Column {
-                    Text(
-                        text = "संम्पत्ति की फोटो अपलोड करें",
-                        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold),
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                    ImagePickerSection(
-                        selectedImageUri = selectedImageUri,
-                        onImageSelected = { uri ->
-                            selectedImageUri = uri.uri
-                            viewModel.updatePropertyImage(uri)
-                        },
-                        onShowImagePicker = { showImagePicker = true },
-                        onClearImage = {
-                            selectedImageUri = null
-                            viewModel.updatePropertyImage(null)
-                        },
-                        onShowCameraPreview = { showCameraPreview = true }
-                    )
-                    viewModel.propertyImageError?.let {
-                        Text(
-                            text = it,
-                            color = Color.Red,
-                            style = TextStyle(fontSize = 12.sp),
-                            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
-                        )
-                    }
-                }
             }
 
-            Button(
-                onClick = {
-                    if (viewModel.submitForm(context, isPreview = true)) {
-                        navController.navigate(Screen.PropertyRegistrationPreview.route)
-                    }
-                },
-                enabled = propertyRes !is Result.Loading,
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White,
-                    disabledContainerColor = Color.Gray,
-                    disabledContentColor = Color.White
-                ),
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .height(50.dp)
-                    .border(
-                        width = 1.5.dp,
-                        color = Color.Black,
-                        shape = RoundedCornerShape(8.dp)
-                    )
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (propertyRes is Result.Loading) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                } else {
+                Button(
+                    onClick = { navController.popBackStack() },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp)
+                ) {
+                    Text("Back", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold))
+                }
+
+                Button(
+                    onClick = {
+                        if (viewModel.validateForm(context)) {
+                            navController.navigate(Screen.PropertyRegistrationPreview.route)
+                        } else {
+                            Toast.makeText(context, "कृपया सभी आवश्यक फ़ील्ड भरें", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp)
+                        .border(
+                            width = 1.5.dp,
+                            color = Color.Black,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                ) {
                     Text(
-                        "PREVIEW",
-                        style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        "Preview",
+                        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     )
                 }
             }
         }
-    }
-
-    if (showImagePicker) {
-        ImagePicker.ShowImagePicker(
-            showBottomSheet = true,
-            onDismiss = { showImagePicker = false },
-            onImageSelected = { uri ->
-                selectedImageUri = uri?.uri
-                viewModel.updatePropertyImage(uri)
-            },
-            onCameraSelected = { showCameraPreview = true }
-        )
-    }
-
-    if (showCameraPreview) {
-        ImagePicker.CameraPreviewScreen(
-            onImageCaptured = { uri ->
-                selectedImageUri = uri?.uri
-                viewModel.updatePropertyImage(uri)
-                showCameraPreview = false
-            },
-            onDismiss = { showCameraPreview = false }
-        )
     }
 }
 

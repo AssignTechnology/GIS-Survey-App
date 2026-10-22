@@ -93,7 +93,7 @@ fun Splash(navController: NavHostController) {
             )
 
             Text(
-                text = "Nagar Panchayat",
+                text = "नगर पंचायत",
                 style = MaterialTheme.typography.headlineLarge.copy(
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
@@ -109,7 +109,7 @@ fun Splash(navController: NavHostController) {
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "Assign Technology Private Limited",
+                text = "जीआईएस सर्वेक्षण",
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color.White.copy(alpha = 0.7f),
                     fontSize = 17.sp,

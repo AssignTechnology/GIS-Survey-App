@@ -98,22 +98,17 @@ object ImagePicker {
         val context = LocalContext.current
         val sheetState = rememberModalBottomSheetState()
         val permissionLauncher = rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestMultiplePermissions()
-        ) { permissions ->
-            val cameraGranted = permissions[android.Manifest.permission.CAMERA] ?: false
-            val locationGranted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-            if (cameraGranted && locationGranted && isLocationEnabled(context)) {
+            ActivityResultContracts.RequestPermission()
+        ) { cameraGranted ->
+            if (cameraGranted) {
                 onCameraSelected()
                 onDismiss()
             } else {
                 Toast.makeText(
                     context,
-                    if (!isLocationEnabled(context)) "Please enable location services" else "Camera and location permissions are required",
+                    "Camera permission is required",
                     Toast.LENGTH_LONG
                 ).show()
-                if (!isLocationEnabled(context)) {
-                    context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-                }
                 onDismiss()
             }
         }
@@ -157,28 +152,11 @@ object ImagePicker {
                             val cameraPermissionStatus = ContextCompat.checkSelfPermission(
                                 context, android.Manifest.permission.CAMERA
                             )
-                            val locationPermissionStatus = ContextCompat.checkSelfPermission(
-                                context, android.Manifest.permission.ACCESS_FINE_LOCATION
-                            )
-                            if (cameraPermissionStatus == PackageManager.PERMISSION_GRANTED &&
-                                locationPermissionStatus == PackageManager.PERMISSION_GRANTED &&
-                                isLocationEnabled(context)
-                            ) {
+                            if (cameraPermissionStatus == PackageManager.PERMISSION_GRANTED) {
                                 onCameraSelected()
                                 onDismiss()
                             } else {
-                                if (!isLocationEnabled(context)) {
-                                    Toast.makeText(context, "Please enable location services", Toast.LENGTH_LONG).show()
-                                    context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-                                    onDismiss()
-                                } else {
-                                    permissionLauncher.launch(
-                                        arrayOf(
-                                            android.Manifest.permission.CAMERA,
-                                            android.Manifest.permission.ACCESS_FINE_LOCATION
-                                        )
-                                    )
-                                }
+                                permissionLauncher.launch(android.Manifest.permission.CAMERA)
                             }
                         }) {
                             Box(contentAlignment = Alignment.Center) {
@@ -229,140 +207,29 @@ object ImagePicker {
         var locationInfo by remember { mutableStateOf<LocationInfo?>(null) }
         val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
         val locationPermissionState = rememberPermissionState(android.Manifest.permission.ACCESS_FINE_LOCATION)
-        val allPermissionsGranted = cameraPermissionState.status.isGranted && locationPermissionState.status.isGranted
-        var isLocationEnabled by remember { mutableStateOf(isLocationEnabled(context)) }
+        val isCameraGranted = cameraPermissionState.status.isGranted
 
-        // Location handling
         val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
         val geocoder = remember { Geocoder(context, Locale.getDefault()) }
 
-        DisposableEffect(Unit) {
-            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            val listener = object : LocationListener {
-                override fun onLocationChanged(location: Location) {}
-                override fun onProviderEnabled(provider: String) {
-                    isLocationEnabled = true
-                }
-                override fun onProviderDisabled(provider: String) {
-                    isLocationEnabled = false
-                }
-            }
-            if (allPermissionsGranted) {
-                try {
-                    locationManager.requestLocationUpdates(
-                        LocationManager.GPS_PROVIDER,
-                        1000L,
-                        0f,
-                        listener,
-                        Looper.getMainLooper()
-                    )
-                    locationManager.requestLocationUpdates(
-                        LocationManager.NETWORK_PROVIDER,
-                        1000L,
-                        0f,
-                        listener,
-                        Looper.getMainLooper()
-                    )
-                } catch (e: SecurityException) {
-                    e.printStackTrace()
-                }
-            }
-            onDispose {
-                locationManager.removeUpdates(listener)
-            }
-        }
-
-        LaunchedEffect(allPermissionsGranted, isLocationEnabled) {
-            if (allPermissionsGranted && isLocationEnabled) {
+        LaunchedEffect(Unit) {
+            if (locationPermissionState.status.isGranted && isLocationEnabled(context)) {
                 try {
                     fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                         if (location != null) {
                             try {
-                                val addresses = geocoder.getFromLocation(
-                                    location.latitude,
-                                    location.longitude,
-                                    1
-                                )
+                                val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
                                 val address = addresses?.firstOrNull()?.getAddressLine(0) ?: "Unknown location"
                                 locationInfo = LocationInfo(
                                     address = address,
                                     latitude = location.latitude,
                                     longitude = location.longitude,
-                                    timestamp = SimpleDateFormat(
-                                        "yyyy-MM-dd HH:mm:ss",
-                                        Locale.getDefault()
-                                    ).format(Date())
+                                    timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
                                 )
-                            } catch (e: Exception) {
-                                locationInfo = LocationInfo(
-                                    address = "Unable to get address"+e.message,
-                                    latitude = location.latitude,
-                                    longitude = location.longitude,
-                                    timestamp = SimpleDateFormat(
-                                        "yyyy-MM-dd HH:mm:ss",
-                                        Locale.getDefault()
-                                    ).format(Date())
-                                )
-                            }
-                        } else {
-                            val locationRequest = LocationRequest.create().apply {
-                                interval = 1000
-                                fastestInterval = 500
-                                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-                            }
-                            fusedLocationClient.requestLocationUpdates(
-                                locationRequest,
-                                object : LocationCallback() {
-                                    override fun onLocationResult(result: LocationResult) {
-                                        result.lastLocation?.let { loc ->
-                                            try {
-                                                val addresses = geocoder.getFromLocation(
-                                                    loc.latitude,
-                                                    loc.longitude,
-                                                    1
-                                                )
-                                                val address = addresses?.firstOrNull()?.getAddressLine(0) ?: "Unknown location"
-                                                locationInfo = LocationInfo(
-                                                    address = address,
-                                                    latitude = loc.latitude,
-                                                    longitude = loc.longitude,
-                                                    timestamp = SimpleDateFormat(
-                                                        "yyyy-MM-dd HH:mm:ss",
-                                                        Locale.getDefault()
-                                                    ).format(Date())
-                                                )
-                                            } catch (e: Exception) {
-                                                locationInfo = LocationInfo(
-                                                    address = "Unable to get address"+e.message,
-                                                    latitude = loc.latitude,
-                                                    longitude = loc.longitude,
-                                                    timestamp = SimpleDateFormat(
-                                                        "yyyy-MM-dd HH:mm:ss",
-                                                        Locale.getDefault()
-                                                    ).format(Date())
-                                                )
-                                            }
-                                            fusedLocationClient.removeLocationUpdates(this)
-                                        }
-                                    }
-                                },
-                                Looper.getMainLooper()
-                            )
+                            } catch (_: Exception) {}
                         }
                     }
-                } catch (e: SecurityException) {
-                    Toast.makeText(context, "Location permission required"+e.message, Toast.LENGTH_SHORT).show()
-                    onDismiss()
-                }
-            } else {
-                if (!isLocationEnabled) {
-                    Toast.makeText(context, "Please enable location services", Toast.LENGTH_LONG).show()
-                    context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-                } else {
-                    if (!cameraPermissionState.status.isGranted) cameraPermissionState.launchPermissionRequest()
-                    if (!locationPermissionState.status.isGranted) locationPermissionState.launchPermissionRequest()
-                }
-                onDismiss()
+                } catch (_: SecurityException) {}
             }
         }
 
@@ -385,14 +252,14 @@ object ImagePicker {
             }
         }
 
-        LaunchedEffect(isBackCamera, allPermissionsGranted, isLocationEnabled) {
-            if (allPermissionsGranted && isLocationEnabled) {
+        LaunchedEffect(isBackCamera, isCameraGranted) {
+            if (isCameraGranted) {
                 val cameraProvider = cameraProviderFuture.get()
                 bindCamera(cameraProvider)
             }
         }
 
-        if (!allPermissionsGranted || !isLocationEnabled) {
+        if (!isCameraGranted) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -404,24 +271,16 @@ object ImagePicker {
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = if (!isLocationEnabled)
-                            "Location services required to use camera"
-                        else
-                            "Camera and location permissions required",
+                        text = "Camera permission required",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.error
                     )
                     Button(
                         onClick = {
-                            if (!isLocationEnabled) {
-                                context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-                            } else {
-                                if (!cameraPermissionState.status.isGranted) cameraPermissionState.launchPermissionRequest()
-                                if (!locationPermissionState.status.isGranted) locationPermissionState.launchPermissionRequest()
-                            }
+                            cameraPermissionState.launchPermissionRequest()
                         }
                     ) {
-                        Text("Grant Permissions")
+                        Text("Grant Permission")
                     }
                 }
             }
@@ -475,41 +334,37 @@ object ImagePicker {
 
             FloatingActionButton(
                 onClick = {
-                    if (isLocationEnabled) {
-                        val photoFile = createImageFile(context)
-                        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-                        imageCapture.takePicture(
-                            outputOptions,
-                            ContextCompat.getMainExecutor(context),
-                            object : ImageCapture.OnImageSavedCallback {
-                                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                                    locationInfo?.let { info ->
-                                        val modifiedUri = addTextToImage(context, photoFile, info)
-                                        val base64 = modifiedUri?.let { getBase64FromUri(context, it) }
-                                        Toast.makeText(context, "Photo captured", Toast.LENGTH_SHORT).show()
-                                        onImageCaptured(ImageResult(modifiedUri, base64, info))
-                                        cameraProviderFuture.get().unbindAll()
-                                        onDismiss()
-                                    } ?: run {
-                                        Toast.makeText(context, "Location data unavailable", Toast.LENGTH_SHORT).show()
-                                        onImageCaptured(null)
-                                        cameraProviderFuture.get().unbindAll()
-                                        onDismiss()
-                                    }
+                    val photoFile = createImageFile(context)
+                    val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+                    imageCapture.takePicture(
+                        outputOptions,
+                        ContextCompat.getMainExecutor(context),
+                        object : ImageCapture.OnImageSavedCallback {
+                            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                                val modifiedUri = if (locationInfo != null) {
+                                    addTextToImage(context, photoFile, locationInfo!!)
+                                } else {
+                                    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
                                 }
-
-                                override fun onError(exception: ImageCaptureException) {
-                                    Toast.makeText(context, "Failed to capture photo", Toast.LENGTH_SHORT).show()
-                                    onImageCaptured(null)
+                                val base64 = modifiedUri?.let { getBase64FromUri(context, it) }
+                                Toast.makeText(context, "Photo captured", Toast.LENGTH_SHORT).show()
+                                onImageCaptured(ImageResult(modifiedUri, base64, locationInfo))
+                                try {
                                     cameraProviderFuture.get().unbindAll()
-                                    onDismiss()
-                                }
+                                } catch (_: Exception) {}
+                                onDismiss()
                             }
-                        )
-                    } else {
-                        Toast.makeText(context, "Location services or permissions missing", Toast.LENGTH_SHORT).show()
-                        onDismiss()
-                    }
+
+                            override fun onError(exception: ImageCaptureException) {
+                                Toast.makeText(context, "Failed to capture photo", Toast.LENGTH_SHORT).show()
+                                onImageCaptured(null)
+                                try {
+                                    cameraProviderFuture.get().unbindAll()
+                                } catch (_: Exception) {}
+                                onDismiss()
+                            }
+                        }
+                    )
                 },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -518,7 +373,7 @@ object ImagePicker {
             ) {
                 Icon(
                     Icons.Default.Camera,
-                    contentDescription = "Capture Photo",
+                    contentDescription = "Capture",
                     modifier = Modifier.size(100.dp)
                 )
             }
@@ -711,6 +566,12 @@ object ImagePicker {
             e.printStackTrace()
             null
         }
+    }
+
+    fun processEditedImage(context: Context, uri: Uri): ImageResult? {
+        val modifiedUri = processGalleryImage(context, uri) ?: uri
+        val base64 = getBase64FromUri(context, modifiedUri)
+        return ImageResult(modifiedUri, base64, null)
     }
 
     private fun rotateBitmap(bitmap: Bitmap, degrees: Float): Bitmap {
