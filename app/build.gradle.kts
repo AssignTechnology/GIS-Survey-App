@@ -74,10 +74,10 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
 
     // Retrofit & OkHttp
-//    implementation(libs.retrofit)
-//    implementation(libs.converter.gson)
-//    implementation(libs.okhttp)
-//    implementation(libs.logging.interceptor)
+    implementation(libs.retrofit)
+    implementation(libs.converter.gson)
+    implementation(libs.okhttp)
+    implementation(libs.logging.interceptor)
 
     // Ktor Client dependencies
     implementation("io.ktor:ktor-client-core:2.3.10")
